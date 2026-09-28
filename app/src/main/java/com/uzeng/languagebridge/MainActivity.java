@@ -39,6 +39,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private File packFile;
     private File aiPackDir;
     private float voiceSpeed=0.86f;
+    private String currentScreen="home";
     private static final int TEAL=Color.rgb(27,154,132);
     private static final int BLUE=Color.rgb(53,120,212);
     private static final int YELLOW=Color.rgb(255,209,102);
@@ -183,6 +184,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showHome(){
+        currentScreen="home";
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackground(gradient(Color.rgb(240,250,247),Color.rgb(238,244,255),0));
@@ -327,6 +329,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showLevelPage(String titleText,String[] lessons){
+        currentScreen="level";
         LinearLayout r=new LinearLayout(this);
         r.setOrientation(LinearLayout.VERTICAL);
         r.setPadding(20,20,20,30);
@@ -346,6 +349,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showPractice(){
+        currentScreen="practice";
         LinearLayout r=new LinearLayout(this);
         r.setOrientation(LinearLayout.VERTICAL);
         r.setPadding(20,20,20,30);
@@ -405,6 +409,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showBeginnerLesson(){
+        currentScreen="lesson";
         LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(20,20,20,28);
         Button back=button("← BOSH SAHIFA");r.addView(back);
         r.addView(text("1-DARS: Salomlashish",24,true));
@@ -444,6 +449,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showWordLesson(){
+        currentScreen="words";
         LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(20,20,20,28);
         Button back=button("← BOSH SAHIFA");r.addView(back);
         r.addView(text("Kundalik so‘zlar",24,true));
@@ -454,6 +460,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showProgress(){
+        currentScreen="progress";
         LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(20,20,20,28);
         Button back=button("← BOSH SAHIFA");r.addView(back);
         int p=prefs.getInt("lesson_progress",0);
@@ -464,6 +471,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showTranslator(){
+        currentScreen="translator";
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.rgb(250,252,252));
@@ -968,6 +976,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showSaved(){
+        currentScreen="saved";
         LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(20,20,20,20);
         Button back=button("← BACK");r.addView(back);r.addView(text("Favorites",20,true));
         Set<String> f=prefs.getStringSet("favorites",Collections.emptySet());
@@ -994,6 +1003,16 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
     @Override public void onInit(int status){if(status==TextToSpeech.SUCCESS){tts.setSpeechRate(voiceSpeed);tts.setPitch(1.0f);}}
+    @Override public void onBackPressed(){
+        if("home".equals(currentScreen)){
+            super.onBackPressed();
+        }else if("translator".equals(currentScreen)){
+            showHome();
+        }else{
+            showTranslator();
+        }
+    }
+
     @Override protected void onDestroy(){
         if(speechRecognizer!=null){speechRecognizer.cancel();speechRecognizer.destroy();}
         if(tts!=null)tts.shutdown();
