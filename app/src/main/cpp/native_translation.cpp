@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <cctype>
 
 #include <ctranslate2/translator.h>
 #include <sentencepiece_processor.h>
@@ -29,6 +30,37 @@ std::string jstringToUtf8(JNIEnv* env, jstring value) {
 
 jstring makeJavaString(JNIEnv* env, const std::string& value) {
     return env->NewStringUTF(value.c_str());
+}
+
+
+std::vector<std::string> splitForTranslation(const std::string& text) {
+    std::vector<std::string> parts;
+    std::string current;
+    current.reserve(text.size());
+
+    auto flush = [&]() {
+        size_t start = current.find_first_not_of(" \t\r\n");
+        size_t end = current.find_last_not_of(" \t\r\n");
+        if (start != std::string::npos && end != std::string::npos) {
+            parts.push_back(current.substr(start, end - start + 1));
+        }
+        current.clear();
+    };
+
+    for (char ch : text) {
+        current.push_back(ch);
+        if (ch == '.' || ch == '!' || ch == '?' || ch == '\n') {
+            flush();
+        } else if (current.size() >= 260 && (ch == ',' || ch == ';' || ch == ':')) {
+            flush();
+        } else if (current.size() >= 360 && std::isspace(static_cast<unsigned char>(ch))) {
+            flush();
+        }
+    }
+    flush();
+
+    if (parts.empty() && !text.empty()) parts.push_back(text);
+    return parts;
 }
 
 void ensureEngine(const std::string& modelPath, const std::string& spmPath) {
@@ -78,29 +110,45 @@ Java_com_uzeng_languagebridge_MainActivity_nativeTranslate(
         std::lock_guard<std::mutex> lock(g_mutex);
         ensureEngine(modelPath, spmPath);
 
-        std::vector<std::string> inputTokens;
-        auto encodeStatus = g_sp->Encode(text, &inputTokens);
-        if (!encodeStatus.ok()) {
-            throw std::runtime_error("Tokenization failed: " + encodeStatus.ToString());
+        const auto segments = splitForTranslation(text);
+        std::vector<std::vector<std::string>> batch;
+        batch.reserve(segments.size());
+
+        for (const auto& segment : segments) {
+            std::vector<std::string> tokens;
+            auto encodeStatus = g_sp->Encode(segment, &tokens);
+            if (!encodeStatus.ok()) {
+                throw std::runtime_error("Tokenization failed: " + encodeStatus.ToString());
+            }
+            batch.push_back(std::move(tokens));
         }
 
         ctranslate2::TranslationOptions options;
-        options.beam_size = 2;
-        options.max_decoding_length = 128;
+        options.beam_size = 4;
+        options.max_decoding_length = 256;
 
-        const std::vector<std::vector<std::string>> batch = {inputTokens};
         const auto results = g_translator->translate_batch(batch, options);
-        if (results.empty() || results[0].hypotheses.empty()) {
-            throw std::runtime_error("Translation returned no result");
+        if (results.size() != batch.size()) {
+            throw std::runtime_error("Translation returned incomplete result");
         }
 
-        std::string decoded;
-        auto decodeStatus = g_sp->Decode(results[0].hypotheses[0], &decoded);
-        if (!decodeStatus.ok()) {
-            throw std::runtime_error("Detokenization failed: " + decodeStatus.ToString());
+        std::string fullOutput;
+        for (size_t i = 0; i < results.size(); ++i) {
+            if (results[i].hypotheses.empty()) {
+                throw std::runtime_error("Translation returned no result");
+            }
+
+            std::string decoded;
+            auto decodeStatus = g_sp->Decode(results[i].hypotheses[0], &decoded);
+            if (!decodeStatus.ok()) {
+                throw std::runtime_error("Detokenization failed: " + decodeStatus.ToString());
+            }
+
+            if (!fullOutput.empty()) fullOutput += " ";
+            fullOutput += decoded;
         }
 
-        return makeJavaString(env, decoded);
+        return makeJavaString(env, fullOutput);
     } catch (const std::exception& e) {
         LOGE("Native translation error: %s", e.what());
         jclass ex = env->FindClass("java/lang/RuntimeException");
