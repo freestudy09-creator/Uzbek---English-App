@@ -5,6 +5,7 @@ import android.os.*;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.content.*;
+import android.text.*;
 import android.speech.tts.TextToSpeech;
 import android.view.*;
 import android.widget.*;
@@ -243,37 +244,94 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showTranslator(){
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
-        TextView head=text("UZBEK ↔ ENGLISH",24,true);head.setTextColor(Color.WHITE);
-        head.setBackgroundColor(Color.rgb(20,110,90));head.setGravity(Gravity.CENTER);
-        head.setPadding(15,28,15,28);root.addView(head);
+        LinearLayout root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackground(gradient(Color.rgb(239,248,246),Color.rgb(236,242,252),0));
+
+        TextView head=text("UZBEK ↔ ENGLISH",24,true);
+        head.setTextColor(Color.WHITE);
+        head.setBackground(gradient(Color.rgb(18,139,113),Color.rgb(37,93,170),0));
+        head.setGravity(Gravity.CENTER);
+        head.setPadding(15,24,15,24);
+        root.addView(head);
 
         ScrollView sv=new ScrollView(this);
-        LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(20,18,20,30);
+        LinearLayout c=new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setPadding(20,18,20,30);
         sv.addView(c);
 
-        Button home=button("← BOSH SAHIFA");c.addView(home);
-        direction=text("English → Uzbek",20,true);c.addView(direction);
-        input=new EditText(this);input.setHint("Type a word or phrase");input.setMinLines(3);
-        input.setGravity(Gravity.TOP);c.addView(input,new LinearLayout.LayoutParams(-1,180));
+        Button home=button("← BOSH SAHIFA • HOME");
+        c.addView(home);
 
-        LinearLayout row=new LinearLayout(this);
-        Button swap=button("⇄ SWAP"),translate=button("TRANSLATE");
-        row.addView(swap,new LinearLayout.LayoutParams(0,-2,1));row.addView(translate,new LinearLayout.LayoutParams(0,-2,1));c.addView(row);
+        LinearLayout languageBar=new LinearLayout(this);
+        languageBar.setOrientation(LinearLayout.HORIZONTAL);
+        languageBar.setGravity(Gravity.CENTER_VERTICAL);
+        languageBar.setPadding(8,8,8,8);
+        languageBar.setBackground(rounded(Color.WHITE,28));
+        languageBar.setElevation(5);
 
-        output=text("Translation will appear here",22,true);output.setBackgroundColor(Color.rgb(245,245,245));
-        output.setMinHeight(150);c.addView(output);
+        TextView sourceLang=text("English",18,true);
+        sourceLang.setGravity(Gravity.CENTER);
+        TextView targetLang=text("Uzbek",18,true);
+        targetLang.setGravity(Gravity.CENTER);
+
+        Button directionArrow=new Button(this);
+        directionArrow.setText("⇄");
+        directionArrow.setTextSize(24);
+        directionArrow.setAllCaps(false);
+        directionArrow.setTextColor(Color.WHITE);
+        directionArrow.setBackground(gradient(Color.rgb(24,128,105),Color.rgb(41,98,173),50));
+
+        languageBar.addView(sourceLang,new LinearLayout.LayoutParams(0,100,1));
+        LinearLayout.LayoutParams arrowLp=new LinearLayout.LayoutParams(105,90);
+        arrowLp.setMargins(8,0,8,0);
+        languageBar.addView(directionArrow,arrowLp);
+        languageBar.addView(targetLang,new LinearLayout.LayoutParams(0,100,1));
+        c.addView(languageBar);
+
+        direction=text("English → Uzbek",14,false);
+        direction.setGravity(Gravity.CENTER);
+        direction.setTextColor(Color.rgb(90,102,118));
+        c.addView(direction);
+
+        input=new EditText(this);
+        input.setHint("Type here • Shu yerga yozing");
+        input.setMinLines(4);
+        input.setTextSize(20);
+        input.setGravity(Gravity.TOP);
+        input.setPadding(20,18,20,18);
+        input.setBackground(rounded(Color.WHITE,28));
+        c.addView(input,new LinearLayout.LayoutParams(-1,210));
+
+        TextView liveLabel=text("Live translation • Jonli tarjima",14,true);
+        liveLabel.setTextColor(Color.rgb(24,128,105));
+        c.addView(liveLabel);
+
+        output=text("Translation will appear automatically\nTarjima avtomatik ko‘rinadi",22,true);
+        output.setBackground(rounded(Color.WHITE,28));
+        output.setMinHeight(170);
+        output.setPadding(20,20,20,20);
+        output.setElevation(4);
+        c.addView(output);
 
         LinearLayout tools=new LinearLayout(this);
-        Button speak=button("🔊 SPEAK"),copy=button("COPY"),save=button("★ SAVE");
-        tools.addView(speak,new LinearLayout.LayoutParams(0,-2,1));
-        tools.addView(copy,new LinearLayout.LayoutParams(0,-2,1));
-        tools.addView(save,new LinearLayout.LayoutParams(0,-2,1));c.addView(tools);
+        Button speak=button("🔊 SPEAK");
+        Button copy=button("COPY");
+        Button save=button("★ SAVE");
+        tools.addView(speak,new LinearLayout.LayoutParams(0,120,1));
+        tools.addView(copy,new LinearLayout.LayoutParams(0,120,1));
+        tools.addView(save,new LinearLayout.LayoutParams(0,120,1));
+        c.addView(tools);
 
         c.addView(text("Offline language pack",19,true));
-        packStatus=text(packFile.exists()?"✓ Uzbek–English pack downloaded ("+enUz.size()+" entries)":"Not downloaded yet",15,false);
+        packStatus=text(packFile.exists()
+            ?"✓ Uzbek–English pack downloaded ("+enUz.size()+" entries)"
+            :"Not downloaded yet",15,false);
         c.addView(packStatus);
-        Button download=button(packFile.exists()?"UPDATE OFFLINE PACK":"DOWNLOAD UZBEK–ENGLISH PACK");
+        Button download=button(packFile.exists()
+            ?"UPDATE OFFLINE PACK"
+            :"DOWNLOAD UZBEK–ENGLISH PACK");
         c.addView(download);
 
         c.addView(text("AI Translation Pack",19,true));
@@ -285,26 +343,67 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             ?"REINSTALL AI TRANSLATION PACK"
             :"DOWNLOAD AI TRANSLATION PACK");
         c.addView(aiDownload);
-        c.addView(text("This installs the English↔Uzbek neural model files for offline AI translation.",14,false));
+        c.addView(text("The downloadable neural model is prepared for the next native AI inference integration.",14,false));
 
-        c.addView(text("Common phrases",19,true));
-        String[] p={"Where are you? — Qayerdasiz?","Hello — Salom","Thank you — Rahmat","How are you? — Qalaysiz?","Please — Iltimos","Sorry — Kechirasiz","Can you help me? — Menga yordam bera olasizmi?","Where is the airport? — Aeroport qayerda?"};
-        for(String s:p)c.addView(text(s,16,false));
+        Button saved=button("RECENT & FAVORITES");
+        c.addView(saved);
 
-        Button saved=button("RECENT & FAVORITES");c.addView(saved);
-        c.addView(text("After downloading the pack, these translations work without internet.",14,false));
+        root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));
+        setContentView(root);
 
-        root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
+        final Handler liveHandler=new Handler(Looper.getMainLooper());
+        final Runnable[] pending=new Runnable[1];
+
+        input.addTextChangedListener(new TextWatcher(){
+            @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+            @Override public void onTextChanged(CharSequence s,int start,int before,int count){
+                if(pending[0]!=null) liveHandler.removeCallbacks(pending[0]);
+                pending[0]=()->translateLive();
+                liveHandler.postDelayed(pending[0],350);
+            }
+            @Override public void afterTextChanged(Editable e){}
+        });
+
+        directionArrow.setOnClickListener(v->{
+            enToUz=!enToUz;
+            sourceLang.setText(enToUz?"English":"Uzbek");
+            targetLang.setText(enToUz?"Uzbek":"English");
+            direction.setText(enToUz?"English → Uzbek":"Uzbek → English");
+            translateLive();
+        });
 
         home.setOnClickListener(v->showHome());
-        swap.setOnClickListener(v->{enToUz=!enToUz;direction.setText(enToUz?"English → Uzbek":"Uzbek → English");input.setText("");output.setText("Translation will appear here");});
-        translate.setOnClickListener(v->translate());
         speak.setOnClickListener(v->speak());
-        copy.setOnClickListener(v->{((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(android.content.ClipData.newPlainText("translation",output.getText()));toast("Copied");});
+        copy.setOnClickListener(v->{
+            ((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE))
+                .setPrimaryClip(android.content.ClipData.newPlainText("translation",output.getText()));
+            toast("Copied");
+        });
         save.setOnClickListener(v->saveFavorite());
         saved.setOnClickListener(v->showSaved());
         download.setOnClickListener(v->downloadPack(download));
         aiDownload.setOnClickListener(v->downloadAiPack(aiDownload));
+    }
+
+    private void translateLive(){
+        if(input==null || output==null) return;
+        String raw=input.getText().toString().trim();
+        if(raw.isEmpty()){
+            output.setText("Translation will appear automatically\nTarjima avtomatik ko‘rinadi");
+            return;
+        }
+
+        String key=raw.toLowerCase(Locale.ROOT).replaceAll("[.!?]+$","").trim();
+        Map<String,String> map=enToUz?enUz:uzEn;
+        String ans=map.get(key);
+
+        if(ans==null){
+            ans=enToUz
+                ?"Hozirgi oflayn lug‘atda aniq tarjima topilmadi."
+                :"No exact translation was found in the current offline dictionary.";
+        }
+
+        output.setText(ans);
     }
 
     private void downloadPack(Button button){
