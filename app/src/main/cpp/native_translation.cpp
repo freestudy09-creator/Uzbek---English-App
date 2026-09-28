@@ -47,13 +47,14 @@ std::vector<std::string> splitForTranslation(const std::string& text) {
         current.clear();
     };
 
+    // Preserve the context of ordinary long sentences. Split at genuine
+    // sentence boundaries first. Only force a split for exceptionally long
+    // text, and then prefer whitespace rather than commas/semicolons.
     for (char ch : text) {
         current.push_back(ch);
         if (ch == '.' || ch == '!' || ch == '?' || ch == '\n') {
             flush();
-        } else if (current.size() >= 260 && (ch == ',' || ch == ';' || ch == ':')) {
-            flush();
-        } else if (current.size() >= 360 && std::isspace(static_cast<unsigned char>(ch))) {
+        } else if (current.size() >= 700 && std::isspace(static_cast<unsigned char>(ch))) {
             flush();
         }
     }
@@ -101,7 +102,26 @@ Java_com_uzeng_languagebridge_MainActivity_nativeTranslate(
     try {
         const std::string modelPath = jstringToUtf8(env, modelPathJ);
         const std::string spmPath = jstringToUtf8(env, spmPathJ);
-        const std::string text = jstringToUtf8(env, textJ);
+        std::string text = jstringToUtf8(env, textJ);
+
+        if (text.size() >= 2) {
+            const bool asciiQuotes =
+                (text.front() == '"' && text.back() == '"') ||
+                (text.front() == '\'' && text.back() == '\'');
+            const std::string openCurly = u8"“";
+            const std::string closeCurly = u8"”";
+            const bool curlyQuotes =
+                text.rfind(openCurly, 0) == 0 &&
+                text.size() >= openCurly.size() + closeCurly.size() &&
+                text.compare(text.size() - closeCurly.size(), closeCurly.size(), closeCurly) == 0;
+
+            if (asciiQuotes) {
+                text = text.substr(1, text.size() - 2);
+            } else if (curlyQuotes) {
+                text = text.substr(openCurly.size(),
+                    text.size() - openCurly.size() - closeCurly.size());
+            }
+        }
 
         if (modelPath.empty() || spmPath.empty() || text.empty()) {
             return makeJavaString(env, "");
