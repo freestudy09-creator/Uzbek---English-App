@@ -676,6 +676,9 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             out=out.replace("litsenziya kurslari","tanlov fanlari");
             out=out.replace("Biznes boshqaruvi magistri","Biznesni boshqarish magistri");
             out=out.replace("biznes boshqaruvi magistri","biznesni boshqarish magistri");
+            out=out.replace("MBA odatda umumiy dastur bo'lishi kerak","MBA odatda umumiy yo'nalishdagi dastur sifatida ko'zda tutilgan");
+            out=out.replace("MBA odatda umumiy dastur bo‘lishi kerak","MBA odatda umumiy yo‘nalishdagi dastur sifatida ko‘zda tutilgan");
+            out=out.replace("mamlakat sanoatlashgan va kompaniyalar ilmiy boshqaruvga intilganida","AQShda sanoatlashuv jarayoni kechayotgan va kompaniyalar boshqaruvning ilmiy usullariga intilayotgan davrda");
         }
         return out;
     }
