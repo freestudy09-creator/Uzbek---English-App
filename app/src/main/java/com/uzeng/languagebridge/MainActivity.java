@@ -17,6 +17,7 @@ import android.widget.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -34,6 +35,11 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private TextToSpeech tts;
     private SpeechRecognizer speechRecognizer;
     private boolean listening=false;
+    private boolean continuousVoice=false;
+    private String confirmedSpeech="";
+    private final Handler voiceHandler=new Handler(Looper.getMainLooper());
+    private final ExecutorService translationExecutor=Executors.newSingleThreadExecutor();
+    private int translationGeneration=0;
     private static final int REQ_RECORD_AUDIO=42;
     private SharedPreferences prefs;
     private File packFile;
@@ -62,13 +68,20 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                 @Override public void onRmsChanged(float rmsdB){}
                 @Override public void onBufferReceived(byte[] buffer){}
                 @Override public void onEndOfSpeech(){listening=false;}
-                @Override public void onError(int error){listening=false;}
+                @Override public void onError(int error){
+                    listening=false;
+                    if(continuousVoice && error!=SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS
+                        && error!=SpeechRecognizer.ERROR_CLIENT){
+                        voiceHandler.postDelayed(()->beginListeningSession(),450);
+                    }
+                }
                 @Override public void onResults(Bundle results){
                     listening=false;
-                    applySpeechResults(results);
+                    applySpeechResults(results,true);
+                    if(continuousVoice) voiceHandler.postDelayed(()->beginListeningSession(),300);
                 }
                 @Override public void onPartialResults(Bundle partialResults){
-                    applySpeechResults(partialResults);
+                    applySpeechResults(partialResults,false);
                 }
                 @Override public void onEvent(int eventType,Bundle params){}
             });
@@ -184,6 +197,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showHome(){
+        if(continuousVoice) stopVoiceTranslation();
         currentScreen="home";
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -656,6 +670,8 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         });
 
         directionArrow.setOnClickListener(v->{
+            if(continuousVoice) stopVoiceTranslation();
+            confirmedSpeech="";
             enToUz=!enToUz;
             sourceLang.setText(enToUz?"English":"Uzbek");
             targetLang.setText(enToUz?"Uzbek":"English");
@@ -686,35 +702,72 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             toast("Speech recognition is not available on this phone");
             return;
         }
+        if(continuousVoice){
+            stopVoiceTranslation();
+            return;
+        }
         if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},REQ_RECORD_AUDIO);
             return;
         }
+        continuousVoice=true;
+        confirmedSpeech=input==null?"":input.getText().toString().trim();
+        toast(enToUz?"Live English listening on":"Jonli o‘zbekcha tinglash yoqildi");
+        beginListeningSession();
+    }
+
+    private void beginListeningSession(){
+        if(!continuousVoice || speechRecognizer==null || input==null || !"translator".equals(currentScreen)) return;
+        if(listening) return;
         Intent intent=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true);
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,3);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,enToUz?"en-US":"uz-UZ");
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,1200L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,700L);
         input.setHint(enToUz?"Listening in English…":"O‘zbekcha tinglanmoqda…");
         try{
             speechRecognizer.cancel();
             speechRecognizer.startListening(intent);
             listening=true;
-        }catch(Exception e){
+        }catch(Exception ex){
             listening=false;
-            toast("Could not start microphone");
+            if(continuousVoice) voiceHandler.postDelayed(()->beginListeningSession(),600);
         }
     }
 
-    private void applySpeechResults(Bundle bundle){
+    private void stopVoiceTranslation(){
+        continuousVoice=false;
+        listening=false;
+        voiceHandler.removeCallbacksAndMessages(null);
+        if(speechRecognizer!=null) speechRecognizer.cancel();
+        if(input!=null) input.setHint(enToUz?"Type here":"Shu yerga yozing");
+        toast("Live listening off");
+    }
+
+    private String joinSpeech(String base,String spoken){
+        base=base==null?"":base.trim();
+        spoken=spoken==null?"":spoken.trim();
+        if(base.isEmpty()) return spoken;
+        if(spoken.isEmpty()) return base;
+        return base+" "+spoken;
+    }
+
+    private void applySpeechResults(Bundle bundle,boolean isFinal){
         if(bundle==null||input==null)return;
         ArrayList<String> matches=bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
         if(matches==null||matches.isEmpty())return;
         String spoken=matches.get(0).trim();
         if(spoken.isEmpty())return;
-        input.setText(spoken);
+
+        String display=joinSpeech(confirmedSpeech,spoken);
+        input.setText(display);
         input.setSelection(input.length());
-        translateLive();
+
+        if(isFinal){
+            confirmedSpeech=display;
+        }
     }
 
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
@@ -752,6 +805,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         if(input==null || output==null) return;
         String raw=input.getText().toString().trim();
         if(raw.isEmpty()){
+            translationGeneration++;
             output.setText("Translation will appear automatically\nTarjima avtomatik ko‘rinadi");
             return;
         }
@@ -760,24 +814,29 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             output.setText("Translating… • Tarjima qilinmoqda…");
             final boolean directionSnapshot=enToUz;
             final String sourceSnapshot=raw;
-            new Thread(()->{
+            final int generation=++translationGeneration;
+            translationExecutor.execute(()->{
+                if(generation!=translationGeneration) return;
                 try{
                     File modelDir=new File(aiPackDir,directionSnapshot?"ai-pack/en-uz":"ai-pack/uz-en");
                     File spm=findSpm(modelDir);
                     if(spm==null) throw new IOException("Tokenizer file missing");
                     String ans=nativeTranslate(modelDir.getAbsolutePath(),spm.getAbsolutePath(),sourceSnapshot);
                     runOnUiThread(()->{
-                        if(input!=null && sourceSnapshot.equals(input.getText().toString().trim()) && directionSnapshot==enToUz){
+                        if(generation==translationGeneration && input!=null
+                            && sourceSnapshot.equals(input.getText().toString().trim())
+                            && directionSnapshot==enToUz){
                             output.setText(ans==null||ans.trim().isEmpty()
                                 ?(directionSnapshot?"Tarjima topilmadi.":"Translation unavailable.")
                                 :polishTranslation(ans,directionSnapshot));
                         }
                     });
-                    return;
-                }catch(Throwable e){
-                    runOnUiThread(()->translateLiveFallback(sourceSnapshot,directionSnapshot));
+                }catch(Throwable ex){
+                    runOnUiThread(()->{
+                        if(generation==translationGeneration) translateLiveFallback(sourceSnapshot,directionSnapshot);
+                    });
                 }
-            }).start();
+            });
             return;
         }
 
@@ -1007,6 +1066,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         if("home".equals(currentScreen)){
             super.onBackPressed();
         }else if("translator".equals(currentScreen)){
+            if(continuousVoice) stopVoiceTranslation();
             showHome();
         }else{
             showTranslator();
@@ -1015,6 +1075,9 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
 
     @Override protected void onDestroy(){
         if(speechRecognizer!=null){speechRecognizer.cancel();speechRecognizer.destroy();}
+        continuousVoice=false;
+        voiceHandler.removeCallbacksAndMessages(null);
+        translationExecutor.shutdownNow();
         if(tts!=null)tts.shutdown();
         super.onDestroy();
     }
