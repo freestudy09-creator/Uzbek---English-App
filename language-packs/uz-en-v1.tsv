@@ -1,0 +1,308 @@
+# Uzbek-English offline language pack v1
+# format: English<TAB>Uzbek
+hello	salom
+hi	salom
+goodbye	xayr
+bye	xayr
+thank you	rahmat
+thanks	rahmat
+please	iltimos
+sorry	kechirasiz
+excuse me	kechirasiz
+yes	ha
+no	yo'q
+maybe	balki
+good morning	xayrli tong
+good afternoon	xayrli kun
+good evening	xayrli kech
+good night	xayrli tun
+how are you	qalaysiz
+where are you	qayerdasiz
+where are you from	qayerdansiz
+i am fine	men yaxshiman
+i am good	men yaxshiman
+what is your name	ismingiz nima
+my name is	mening ismim
+nice to meet you	tanishganimdan xursandman
+i don't understand	men tushunmayapman
+i understand	men tushunaman
+speak slowly	sekin gapiring
+please repeat	iltimos takrorlang
+can you help me	menga yordam bera olasizmi
+i need help	menga yordam kerak
+what does this mean	bu nimani anglatadi
+how do you say this in uzbek	buni o'zbek tilida qanday aytiladi
+how do you say this in english	buni ingliz tilida qanday aytiladi
+english	ingliz tili
+uzbek	o'zbek tili
+language	til
+word	so'z
+sentence	gap
+question	savol
+answer	javob
+water	suv
+food	ovqat
+tea	choy
+coffee	qahva
+bread	non
+milk	sut
+rice	guruch
+meat	go'sht
+chicken	tovuq
+fish	baliq
+fruit	meva
+vegetable	sabzavot
+apple	olma
+banana	banan
+orange	apelsin
+grape	uzum
+salt	tuz
+sugar	shakar
+breakfast	nonushta
+lunch	tushlik
+dinner	kechki ovqat
+restaurant	restoran
+menu	menyu
+bill	hisob
+market	bozor
+shop	do'kon
+store	do'kon
+school	maktab
+university	universitet
+teacher	o'qituvchi
+student	talaba
+book	kitob
+pen	ruchka
+pencil	qalam
+paper	qog'oz
+lesson	dars
+homework	uy vazifasi
+exam	imtihon
+research	tadqiqot
+science	fan
+mathematics	matematika
+computer	kompyuter
+phone	telefon
+internet	internet
+house	uy
+home	uy
+room	xona
+door	eshik
+window	deraza
+kitchen	oshxona
+bathroom	hammom
+bed	yotoq
+table	stol
+chair	stul
+road	yo'l
+street	ko'cha
+city	shahar
+village	qishloq
+country	mamlakat
+car	mashina
+bus	avtobus
+train	poyezd
+taxi	taksi
+airport	aeroport
+station	bekat
+hotel	mehmonxona
+hospital	kasalxona
+pharmacy	dorixona
+doctor	shifokor
+nurse	hamshira
+medicine	dori
+police	politsiya
+bank	bank
+money	pul
+price	narx
+ticket	chipta
+passport	pasport
+friend	do'st
+family	oila
+mother	ona
+father	ota
+parents	ota-ona
+brother	aka
+younger brother	uka
+sister	opa
+younger sister	singil
+son	o'g'il
+daughter	qiz
+husband	er
+wife	xotin
+child	bola
+children	bolalar
+man	erkak
+woman	ayol
+person	odam
+today	bugun
+tomorrow	ertaga
+yesterday	kecha
+now	hozir
+later	keyin
+morning	ertalab
+afternoon	kunduzi
+evening	kechqurun
+night	tun
+day	kun
+week	hafta
+month	oy
+year	yil
+hour	soat
+minute	daqiqa
+time	vaqt
+monday	dushanba
+tuesday	seshanba
+wednesday	chorshanba
+thursday	payshanba
+friday	juma
+saturday	shanba
+sunday	yakshanba
+one	bir
+two	ikki
+three	uch
+four	to'rt
+five	besh
+six	olti
+seven	yetti
+eight	sakkiz
+nine	to'qqiz
+ten	o'n
+eleven	o'n bir
+twelve	o'n ikki
+twenty	yigirma
+thirty	o'ttiz
+forty	qirq
+fifty	ellik
+hundred	yuz
+thousand	ming
+first	birinchi
+second	ikkinchi
+third	uchinchi
+good	yaxshi
+bad	yomon
+beautiful	chiroyli
+big	katta
+small	kichik
+long	uzun
+short	qisqa
+fast	tez
+slow	sekin
+hot	issiq
+cold	sovuq
+new	yangi
+old	eski
+young	yosh
+easy	oson
+difficult	qiyin
+important	muhim
+ready	tayyor
+open	ochiq
+closed	yopiq
+happy	xursand
+sad	xafa
+tired	charchagan
+hungry	och
+thirsty	chanqagan
+right	o'ng
+left	chap
+straight	to'g'ri
+near	yaqin
+far	uzoq
+here	bu yerda
+there	u yerda
+who	kim
+what	nima
+where	qayerda
+when	qachon
+why	nima uchun
+how	qanday
+which	qaysi
+how much	qancha
+how many	nechta
+i	men
+you	siz
+he	u
+she	u
+we	biz
+they	ular
+this	bu
+that	u
+my	mening
+your	sizning
+our	bizning
+their	ularning
+come	kelmoq
+go	bormoq
+eat	yemoq
+drink	ichmoq
+sleep	uxlamoq
+read	o'qimoq
+write	yozmoq
+speak	gapirmoq
+listen	tinglamoq
+see	ko'rmoq
+look	qaramoq
+know	bilmoq
+understand	tushunmoq
+learn	o'rganmoq
+teach	o'qitmoq
+work	ishlamoq
+study	o'qimoq
+live	yashamoq
+want	xohlamoq
+need	kerak bo'lmoq
+like	yoqtirmoq
+love	sevmoq
+give	bermoq
+take	olmoq
+buy	sotib olmoq
+sell	sotmoq
+pay	to'lamoq
+wait	kutmoq
+call	qo'ng'iroq qilmoq
+help	yordam bermoq
+find	topmoq
+open	ochmoq
+close	yopmoq
+start	boshlamoq
+finish	tugatmoq
+how much is this	bu qancha turadi
+where is the airport	aeroport qayerda
+where is the hotel	mehmonxona qayerda
+where is the bathroom	hojatxona qayerda
+where is the station	bekat qayerda
+where is the hospital	kasalxona qayerda
+i want water	men suv xohlayman
+i want tea	men choy xohlayman
+i need a taxi	menga taksi kerak
+i need a doctor	menga shifokor kerak
+i am hungry	men ochman
+i am thirsty	men chanqadim
+i am tired	men charchadim
+i am lost	men adashib qoldim
+please help me	iltimos menga yordam bering
+please wait	iltimos kuting
+please sit down	iltimos o'tiring
+come here	bu yerga keling
+go there	u yerga boring
+what time is it	soat necha
+what is this	bu nima
+who is this	bu kim
+where do you live	qayerda yashaysiz
+i live in samarkand	men Samarqandda yashayman
+i live in tashkent	men Toshkentda yashayman
+do you speak english	ingliz tilida gapirasizmi
+do you speak uzbek	o'zbek tilida gapirasizmi
+i speak english	men ingliz tilida gapiraman
+i speak uzbek	men o'zbek tilida gapiraman
+i am learning uzbek	men o'zbek tilini o'rganyapman
+i am learning english	men ingliz tilini o'rganyapman
+see you tomorrow	ertaga ko'rishamiz
+see you later	keyin ko'rishamiz
+welcome	xush kelibsiz
+congratulations	tabriklayman
+good luck	omad
+be careful	ehtiyot bo'ling
+no problem	muammo yo'q
+of course	albatta
