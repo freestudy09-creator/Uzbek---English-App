@@ -42,7 +42,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private void loadBuiltIn(){
         pair("hello","salom"); pair("thank you","rahmat"); pair("please","iltimos");
         pair("sorry","kechirasiz"); pair("yes","ha"); pair("no","yo'q");
-        pair("how are you","qalaysiz"); pair("where are you","qayerdasiz");
+        pair("how are you","qalaysiz"); pair("where are you","qayerdasiz");\n        pair("what are you doing","nima qilyapsiz"); pair("what do you do","nima ish qilasiz");\n        pair("where are you going","qayerga ketyapsiz"); pair("what are you looking for","nima qidiryapsiz");\n        pair("what do you want","nima xohlaysiz"); pair("what do you need","sizga nima kerak");
         pair("where are you from","qayerdansiz"); pair("i am fine","men yaxshiman");
         pair("what is your name","ismingiz nima"); pair("can you help me","menga yordam bera olasizmi");
         pair("where is the airport","aeroport qayerda"); pair("where is the hotel","mehmonxona qayerda");
@@ -321,22 +321,23 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
 
     private void translate(){
         String raw=input.getText().toString().trim();
-        if(raw.isEmpty()){toast("Type something first");return;}
+        if(raw.isEmpty()){toast("Avval so‘z yoki gap yozing");return;}
         String key=raw.toLowerCase(Locale.ROOT).replaceAll("[.!?]+$","").trim();
         Map<String,String> map=enToUz?enUz:uzEn;
         String ans=map.get(key);
+
         if(ans==null){
-            StringBuilder sb=new StringBuilder();int found=0,total=0;
-            for(String w:key.split("\\s+")){
-                total++;String clean=w.replaceAll("^[^\\p{L}']+|[^\\p{L}']+$","");
-                String t=map.get(clean);
-                if(t!=null){sb.append(t);found++;}else sb.append(w);
-                sb.append(" ");
+            if(!key.contains(" ")){
+                ans=enToUz
+                    ?"Bu so‘z hozirgi oflayn lug‘atda yo‘q."
+                    :"This word is not in the current offline dictionary.";
+            }else{
+                ans=enToUz
+                    ?"Bu gap hozirgi oflayn paketda yo‘q. Noto‘g‘ri so‘zma-so‘z tarjima ko‘rsatilmaydi."
+                    :"This sentence is not in the current offline pack. The app will not show an unsafe word-by-word translation.";
             }
-            if(found>0 && found==total) ans=sb.toString().trim();
-            else if(found>0) ans=sb.toString().trim()+"\n\n(Some words are not in the downloaded pack.)";
-            else ans=packFile.exists()?"Not available in this offline pack yet.":"Download the Uzbek–English offline pack first.";
         }
+
         output.setText(ans);
         Set<String> r=new LinkedHashSet<>(prefs.getStringSet("recent",Collections.emptySet()));
         r.add(raw+" → "+ans);prefs.edit().putStringSet("recent",r).apply();
