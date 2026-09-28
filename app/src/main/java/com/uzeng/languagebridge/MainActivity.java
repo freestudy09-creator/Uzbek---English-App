@@ -3,6 +3,7 @@ package com.uzeng.languagebridge;
 import android.app.*;
 import android.os.*;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.content.*;
 import android.speech.tts.TextToSpeech;
 import android.view.*;
@@ -29,7 +30,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         tts=new TextToSpeech(this,this);
         loadBuiltIn();
         if(packFile.exists()) loadPack(packFile);
-        showTranslator();
+        showHome();
     }
 
     private void pair(String e,String u){
@@ -65,40 +66,110 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         return n;
     }
 
-    private TextView text(String s,int sp,boolean bold){
-        TextView v=new TextView(this); v.setText(s); v.setTextSize(sp);
-        v.setTextColor(Color.rgb(25,35,35)); v.setPadding(12,12,12,12);
-        if(bold)v.setTypeface(null,1); return v;
+    private GradientDrawable rounded(int color,float radius){
+        GradientDrawable g=new GradientDrawable();
+        g.setColor(color); g.setCornerRadius(radius);
+        return g;
     }
-    private Button button(String s){Button b=new Button(this);b.setText(s);return b;}
 
+    private GradientDrawable gradient(int c1,int c2,float radius){
+        GradientDrawable g=new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[]{c1,c2}
+        );
+        g.setCornerRadius(radius);
+        return g;
+    }
+
+    private TextView text(String s,int sp,boolean bold){
+        TextView v=new TextView(this);
+        v.setText(s); v.setTextSize(sp); v.setTextColor(Color.rgb(24,34,48));
+        v.setPadding(14,12,14,12);
+        if(bold)v.setTypeface(null,1);
+        return v;
+    }
+
+    private Button button(String s){
+        Button b=new Button(this);
+        b.setText(s); b.setTextSize(15); b.setAllCaps(false);
+        b.setTextColor(Color.WHITE);
+        b.setTypeface(null,1);
+        b.setPadding(18,8,18,8);
+        b.setBackground(gradient(Color.rgb(24,128,105),Color.rgb(41,98,173),28));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,142);
+        lp.setMargins(0,10,0,10);
+        b.setLayoutParams(lp);
+        return b;
+    }
+
+    private TextView card(String title,String subtitle){
+        TextView v=text(title+"\n"+subtitle,18,true);
+        v.setBackground(rounded(Color.WHITE,28));
+        v.setElevation(6);
+        v.setPadding(22,18,22,18);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+        lp.setMargins(0,10,0,10);
+        v.setLayoutParams(lp);
+        return v;
+    }
 
     private void showHome(){
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
-        TextView head=text("INGLIZ TILINI OSON O‘RGANING",24,true);
-        head.setTextColor(Color.WHITE);head.setGravity(Gravity.CENTER);
-        head.setBackgroundColor(Color.rgb(20,110,90));head.setPadding(18,32,18,32);
-        root.addView(head);
+        LinearLayout root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackground(gradient(Color.rgb(239,248,246),Color.rgb(236,242,252),0));
 
         ScrollView sv=new ScrollView(this);
-        LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(22,22,22,30);
+        LinearLayout c=new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setPadding(24,26,24,40);
         sv.addView(c);
 
-        c.addView(text("Assalomu alaykum!",22,true));
-        c.addView(text("Ingliz tilini 0 dan boshlab, o‘zbek tilida, bosqichma-bosqich o‘rganing.",17,false));
+        TextView logo=text("UZ  •  EN",18,true);
+        logo.setTextColor(Color.WHITE);
+        logo.setGravity(Gravity.CENTER);
+        logo.setBackground(gradient(Color.rgb(18,139,113),Color.rgb(37,93,170),50));
+        logo.setPadding(18,14,18,14);
+        LinearLayout.LayoutParams logoLp=new LinearLayout.LayoutParams(250,80);
+        logoLp.gravity=Gravity.CENTER_HORIZONTAL;
+        logo.setLayoutParams(logoLp);
+        logo.setElevation(8);
+        c.addView(logo);
 
-        Button start=button("▶ 0 DAN BOSHLASH");
-        Button translator=button("⇄ TARJIMON");
-        Button words=button("📚 SO‘ZLAR");
-        Button progress=button("✓ MENING NATIJAM");
-        c.addView(start);c.addView(translator);c.addView(words);c.addView(progress);
+        TextView title=text("Ingliz tilini oson o‘rganing",30,true);
+        title.setGravity(Gravity.CENTER);
+        title.setPadding(8,28,8,6);
+        c.addView(title);
 
-        c.addView(text("Boshlang‘ich darslar",20,true));
-        c.addView(text("1. Salomlashish\n2. Tanishish\n3. Raqamlar\n4. Oila\n5. Maktab va universitet\n6. Kundalik suhbat\n7. Do‘kon va bozor\n8. Safar va transport",16,false));
+        TextView subtitle=text("O‘zbek tilida • Oflayn • Bosqichma-bosqich",16,false);
+        subtitle.setGravity(Gravity.CENTER);
+        subtitle.setTextColor(Color.rgb(90,102,118));
+        c.addView(subtitle);
 
-        root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
+        TextView welcome=card("Assalomu alaykum 👋","Bugun 10 daqiqa o‘rganishdan boshlang.");
+        c.addView(welcome);
 
-        start.setOnClickListener(v->showBeginnerLesson());
+        c.addView(text("Darajangizni tanlang",21,true));
+
+        Button beginner=button("🌱  0 DAN BOSHLASH");
+        Button medium=button("📘  O‘RTA DARAJA");
+        Button advanced=button("🚀  YUQORI DARAJA");
+        c.addView(beginner);c.addView(medium);c.addView(advanced);
+
+        c.addView(text("Tezkor imkoniyatlar",21,true));
+        Button translator=button("⇄  TARJIMON");
+        Button words=button("📚  KUNDALIK SO‘ZLAR");
+        Button progress=button("🏆  MENING NATIJAM");
+        c.addView(translator);c.addView(words);c.addView(progress);
+
+        TextView daily=card("Bugungi maqsad","5 ta yangi so‘z • 1 ta mini test • 5 daqiqa tinglash");
+        c.addView(daily);
+
+        root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));
+        setContentView(root);
+
+        beginner.setOnClickListener(v->showBeginnerLesson());
+        medium.setOnClickListener(v->toast("O‘rta daraja darslari tayyorlanmoqda"));
+        advanced.setOnClickListener(v->toast("Yuqori daraja darslari tayyorlanmoqda"));
         translator.setOnClickListener(v->showTranslator());
         words.setOnClickListener(v->showWordLesson());
         progress.setOnClickListener(v->showProgress());
