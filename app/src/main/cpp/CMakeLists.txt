@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(tilmate_translation)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 include(FetchContent)
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
