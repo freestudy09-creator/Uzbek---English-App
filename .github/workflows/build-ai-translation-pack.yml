@@ -1,0 +1,144 @@
+name: Build Uzbek English AI Translation Pack
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-translation-pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ctranslate2>=4.8" "sentencepiece>=0.2" "huggingface_hub>=0.25" pyyaml
+
+      - name: Download HPLT English to Uzbek model
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          snapshot_download(
+              repo_id="HPLT/translate-en-uz-v2.0-hplt_opus",
+              local_dir="models/en-uz",
+              local_dir_use_symlinks=False
+          )
+          PY
+
+      - name: Download HPLT Uzbek to English model
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          snapshot_download(
+              repo_id="HPLT/translate-uz-en-v2.0-hplt_opus",
+              local_dir="models/uz-en",
+              local_dir_use_symlinks=False
+          )
+          PY
+
+      - name: Convert SentencePiece vocab files to Marian YAML
+        run: |
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+
+          for direction in ["en-uz", "uz-en"]:
+              folder = Path("models") / direction
+              vocab_file = next(folder.glob("*.vocab"))
+              tokens = []
+              with vocab_file.open("r", encoding="utf-8") as f:
+                  for line in f:
+                      if not line.strip():
+                          continue
+                      token = line.rstrip("\n").split("\t", 1)[0]
+                      tokens.append(token)
+              mapping = {tok: i for i, tok in enumerate(tokens)}
+              out = folder / "vocab.yml"
+              with out.open("w", encoding="utf-8") as f:
+                  yaml.safe_dump(mapping, f, allow_unicode=True, sort_keys=False)
+              print(direction, "vocab entries:", len(mapping), "->", out)
+          PY
+
+      - name: Convert English to Uzbek model to INT8
+        run: |
+          MODEL=$(find models/en-uz -name "*.npz" | head -n1)
+          ct2-marian-converter             --model_path "$MODEL"             --vocab_paths models/en-uz/vocab.yml models/en-uz/vocab.yml             --output_dir ai-pack/en-uz             --quantization int8
+
+      - name: Convert Uzbek to English model to INT8
+        run: |
+          MODEL=$(find models/uz-en -name "*.npz" | head -n1)
+          ct2-marian-converter             --model_path "$MODEL"             --vocab_paths models/uz-en/vocab.yml models/uz-en/vocab.yml             --output_dir ai-pack/uz-en             --quantization int8
+
+      - name: Copy tokenizers
+        run: |
+          cp models/en-uz/*.spm ai-pack/en-uz/
+          cp models/uz-en/*.spm ai-pack/uz-en/
+
+      - name: Smoke test both translation directions
+        run: |
+          python - <<'PY'
+          import ctranslate2, sentencepiece as spm, glob
+
+          def translate(model_dir, text):
+              sp = spm.SentencePieceProcessor(model_file=glob.glob(model_dir+"/*.spm")[0])
+              tr = ctranslate2.Translator(model_dir, device="cpu")
+              pieces = sp.encode(text, out_type=str)
+              out = tr.translate_batch([pieces], beam_size=4, max_decoding_length=128)[0].hypotheses[0]
+              return sp.decode(out)
+
+          tests = [
+              ("EN→UZ", "ai-pack/en-uz", "What are you doing?"),
+              ("EN→UZ", "ai-pack/en-uz", "I am learning English at university."),
+              ("UZ→EN", "ai-pack/uz-en", "Nima qilyapsiz?"),
+              ("UZ→EN", "ai-pack/uz-en", "Men universitetda ingliz tilini o'rganyapman."),
+          ]
+          for name, model, text in tests:
+              result = translate(model, text)
+              print(name, "|", text, "=>", result)
+              if not result.strip():
+                  raise RuntimeError("Empty translation")
+          PY
+
+      - name: Create pack metadata
+        run: |
+          python - <<'PY'
+          import json, os
+          data = {
+            "name": "Uzbek English AI Translation Pack",
+            "version": "1.0.0",
+            "engine_format": "CTranslate2",
+            "quantization": "int8",
+            "directions": ["en-uz", "uz-en"],
+            "source_models": [
+              "HPLT/translate-en-uz-v2.0-hplt_opus",
+              "HPLT/translate-uz-en-v2.0-hplt_opus"
+            ],
+            "offline": True
+          }
+          with open("ai-pack/manifest.json","w",encoding="utf-8") as f:
+              json.dump(data,f,ensure_ascii=False,indent=2)
+          PY
+          du -sh ai-pack
+          find ai-pack -maxdepth 2 -type f -printf "%p %k KB\n" | sort
+
+      - name: Package AI translation pack
+        run: |
+          tar -czf Uzbek-English-AI-Translation-Pack-v1.tar.gz ai-pack
+          sha256sum Uzbek-English-AI-Translation-Pack-v1.tar.gz > Uzbek-English-AI-Translation-Pack-v1.sha256
+
+      - name: Upload AI translation pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: Uzbek-English-AI-Translation-Pack-v1
+          path: |
+            Uzbek-English-AI-Translation-Pack-v1.tar.gz
+            Uzbek-English-AI-Translation-Pack-v1.sha256
+          retention-days: 90
