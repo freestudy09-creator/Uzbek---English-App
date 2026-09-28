@@ -35,7 +35,25 @@ FetchContent_Declare(
   GIT_SUBMODULES_RECURSE TRUE
 )
 
-FetchContent_MakeAvailable(sentencepiece ctranslate2)
+FetchContent_MakeAvailable(sentencepiece)
+
+FetchContent_GetProperties(ctranslate2)
+if(NOT ctranslate2_POPULATED)
+  FetchContent_Populate(ctranslate2)
+
+  # Android/Bionic does not expose pthread_setaffinity_np. CTranslate2 only
+  # uses it for optional worker pinning, so disable that Linux-only branch.
+  set(CT2_THREAD_POOL "${ctranslate2_SOURCE_DIR}/src/thread_pool.cc")
+  file(READ "${CT2_THREAD_POOL}" CT2_THREAD_POOL_TEXT)
+  string(REPLACE
+    "#if !defined(__linux__) || defined(_OPENMP)"
+    "#if !defined(__linux__) || defined(_OPENMP) || defined(__ANDROID__)"
+    CT2_THREAD_POOL_TEXT
+    "${CT2_THREAD_POOL_TEXT}")
+  file(WRITE "${CT2_THREAD_POOL}" "${CT2_THREAD_POOL_TEXT}")
+
+  add_subdirectory("${ctranslate2_SOURCE_DIR}" "${ctranslate2_BINARY_DIR}")
+endif()
 
 add_library(tilmate_translation SHARED native_translation.cpp)
 
