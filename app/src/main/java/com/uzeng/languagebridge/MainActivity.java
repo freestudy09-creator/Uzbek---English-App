@@ -667,6 +667,19 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         return null;
     }
 
+    private String polishTranslation(String text, boolean directionEnToUz){
+        if(text==null) return "";
+        String out=text.trim().replaceAll("\\s+([,.!?;:])","$1").replaceAll("[ \\t]{2,}"," ");
+        if(directionEnToUz){
+            // High-confidence Uzbek terminology cleanup for common education/business text.
+            out=out.replace("litsenziyalash kurslari","tanlov fanlari");
+            out=out.replace("litsenziya kurslari","tanlov fanlari");
+            out=out.replace("Biznes boshqaruvi magistri","Biznesni boshqarish magistri");
+            out=out.replace("biznes boshqaruvi magistri","biznesni boshqarish magistri");
+        }
+        return out;
+    }
+
     private void translateLive(){
         if(input==null || output==null) return;
         String raw=input.getText().toString().trim();
@@ -689,7 +702,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                         if(input!=null && sourceSnapshot.equals(input.getText().toString().trim()) && directionSnapshot==enToUz){
                             output.setText(ans==null||ans.trim().isEmpty()
                                 ?(directionSnapshot?"Tarjima topilmadi.":"Translation unavailable.")
-                                :ans.trim());
+                                :polishTranslation(ans,directionSnapshot));
                         }
                     });
                     return;
