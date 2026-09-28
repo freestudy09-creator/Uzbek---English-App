@@ -1,0 +1,103 @@
+name: Build Uzbek Offline Voice Model
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install model tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install "transformers>=4.45" "huggingface_hub>=0.25" "torch>=2.2" "safetensors>=0.4" numpy sentencepiece
+
+      - name: Download Uzbek Whisper model
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          snapshot_download(
+              repo_id="navai-uz/whisper-base-uzbek",
+              local_dir="hf-uzbek-whisper-base",
+              local_dir_use_symlinks=False
+          )
+          PY
+
+      - name: Clone whisper.cpp
+        run: |
+          git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git
+
+      - name: Build whisper.cpp tools
+        run: |
+          cmake -S whisper.cpp -B whisper.cpp/build -DWHISPER_BUILD_EXAMPLES=ON
+          cmake --build whisper.cpp/build --config Release -j2
+
+      - name: Convert Hugging Face Whisper model to GGML
+        run: |
+          python - <<'PY'
+          import os, subprocess, sys
+          candidates = [
+              "whisper.cpp/models/convert-h5-to-ggml.py",
+              "whisper.cpp/models/convert-pt-to-ggml.py",
+              "whisper.cpp/models/convert-hf-to-ggml.py",
+          ]
+          script = next((p for p in candidates if os.path.exists(p)), None)
+          if not script:
+              print("Available model scripts:")
+              for root, dirs, files in os.walk("whisper.cpp/models"):
+                  for f in files:
+                      if f.endswith(".py") and "convert" in f:
+                          print(os.path.join(root,f))
+              sys.exit("No compatible Whisper conversion script found.")
+          print("Using", script)
+          cmd=[sys.executable, script, "hf-uzbek-whisper-base", "whisper.cpp", "uzbek-whisper-base-f16.bin"]
+          print(" ".join(cmd))
+          subprocess.check_call(cmd)
+          PY
+
+      - name: Quantize for Android
+        run: |
+          QUANT="$(find whisper.cpp/build -type f -name 'whisper-quantize' -o -name 'quantize' | head -n 1)"
+          if [ -z "$QUANT" ]; then
+            echo "Quantizer not found"
+            find whisper.cpp/build -maxdepth 4 -type f | sort | tail -n 200
+            exit 1
+          fi
+          "$QUANT" uzbek-whisper-base-f16.bin uzbek-whisper-base-q5_0.bin q5_0
+
+      - name: Create model metadata
+        run: |
+          cat > uzbek-voice-pack.json <<'JSON'
+          {
+            "name": "Uzbek Offline Voice Pack",
+            "language": "uz",
+            "script": "Latin",
+            "engine": "whisper.cpp",
+            "base_model": "navai-uz/whisper-base-uzbek",
+            "quantization": "q5_0",
+            "sample_rate_hz": 16000,
+            "version": "1.0.0",
+            "license": "Apache-2.0"
+          }
+          JSON
+          sha256sum uzbek-whisper-base-q5_0.bin > uzbek-whisper-base-q5_0.sha256
+
+      - name: Upload Uzbek Voice Pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: Uzbek-Offline-Voice-Pack-q5_0
+          path: |
+            uzbek-whisper-base-q5_0.bin
+            uzbek-whisper-base-q5_0.sha256
+            uzbek-voice-pack.json
+          retention-days: 90
