@@ -16,6 +16,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class MainActivity extends Activity implements TextToSpeech.OnInitListener {
+    static {
+        System.loadLibrary("tilmate_translation");
+    }
+
+    private static native String nativeTranslate(String modelPath,String spmPath,String text);
     private final Map<String,String> enUz=new LinkedHashMap<>();
     private final Map<String,String> uzEn=new LinkedHashMap<>();
     private EditText input;
@@ -343,7 +348,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             ?"REINSTALL AI TRANSLATION PACK"
             :"DOWNLOAD AI TRANSLATION PACK");
         c.addView(aiDownload);
-        c.addView(text("The downloadable neural model is prepared for the next native AI inference integration.",14,false));
+        c.addView(text("AI pack installed = real offline neural translation on this device.",14,false));
 
         Button saved=button("RECENT & FAVORITES");
         c.addView(saved);
@@ -385,6 +390,13 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         aiDownload.setOnClickListener(v->downloadAiPack(aiDownload));
     }
 
+    private File findSpm(File dir){
+        File[] files=dir.listFiles();
+        if(files==null) return null;
+        for(File f:files) if(f.isFile() && f.getName().endsWith(".spm")) return f;
+        return null;
+    }
+
     private void translateLive(){
         if(input==null || output==null) return;
         String raw=input.getText().toString().trim();
@@ -393,16 +405,43 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             return;
         }
 
-        String key=raw.toLowerCase(Locale.ROOT).replaceAll("[.!?]+$","").trim();
-        Map<String,String> map=enToUz?enUz:uzEn;
-        String ans=map.get(key);
-
-        if(ans==null){
-            ans=enToUz
-                ?"Hozirgi oflayn lug‘atda aniq tarjima topilmadi."
-                :"No exact translation was found in the current offline dictionary.";
+        if(isAiPackReady()){
+            output.setText("Translating… • Tarjima qilinmoqda…");
+            final boolean directionSnapshot=enToUz;
+            final String sourceSnapshot=raw;
+            new Thread(()->{
+                try{
+                    File modelDir=new File(aiPackDir,directionSnapshot?"ai-pack/en-uz":"ai-pack/uz-en");
+                    File spm=findSpm(modelDir);
+                    if(spm==null) throw new IOException("Tokenizer file missing");
+                    String ans=nativeTranslate(modelDir.getAbsolutePath(),spm.getAbsolutePath(),sourceSnapshot);
+                    runOnUiThread(()->{
+                        if(input!=null && sourceSnapshot.equals(input.getText().toString().trim()) && directionSnapshot==enToUz){
+                            output.setText(ans==null||ans.trim().isEmpty()
+                                ?(directionSnapshot?"Tarjima topilmadi.":"Translation unavailable.")
+                                :ans.trim());
+                        }
+                    });
+                    return;
+                }catch(Throwable e){
+                    runOnUiThread(()->translateLiveFallback(sourceSnapshot,directionSnapshot));
+                }
+            }).start();
+            return;
         }
 
+        translateLiveFallback(raw,enToUz);
+    }
+
+    private void translateLiveFallback(String raw,boolean directionSnapshot){
+        String key=raw.toLowerCase(Locale.ROOT).replaceAll("[.!?]+$","").trim();
+        Map<String,String> map=directionSnapshot?enUz:uzEn;
+        String ans=map.get(key);
+        if(ans==null){
+            ans=directionSnapshot
+                ?"AI paketini yuklab oling — erkin gaplarni oflayn tarjima qilish uchun."
+                :"Download the AI pack for offline open-ended sentence translation.";
+        }
         output.setText(ans);
     }
 
