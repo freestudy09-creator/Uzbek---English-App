@@ -18,9 +18,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Locate Android SDK manager
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          SDKMANAGER="$(find "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /usr/local/lib/android/sdk -type f -name sdkmanager 2>/dev/null | head -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            find /usr/local/lib/android/sdk -maxdepth 5 -type f | head -n 200 || true
+            exit 1
+          fi
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "Found: $SDKMANAGER"
+
       - name: Install Android API 36
         run: |
-          SDKMANAGER=/usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
