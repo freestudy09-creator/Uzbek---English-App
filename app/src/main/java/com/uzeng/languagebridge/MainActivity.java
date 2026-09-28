@@ -11,22 +11,27 @@ import android.widget.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class MainActivity extends Activity implements TextToSpeech.OnInitListener {
     private final Map<String,String> enUz=new LinkedHashMap<>();
     private final Map<String,String> uzEn=new LinkedHashMap<>();
     private EditText input;
-    private TextView output,direction,packStatus;
+    private TextView output,direction,packStatus,aiPackStatus;
     private boolean enToUz=true;
     private TextToSpeech tts;
     private SharedPreferences prefs;
     private File packFile;
+    private File aiPackDir;
     private static final String PACK_URL="https://raw.githubusercontent.com/freestudy09-creator/Uzbek---English-App/main/language-packs/uz-en-v1.tsv";
+    private static final String AI_PACK_URL="https://github.com/freestudy09-creator/Uzbek---English-App/releases/download/ai-translation-v1/Uzbek-English-AI-Translation-Pack-v1.zip";
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
         prefs=getSharedPreferences("uzeng",MODE_PRIVATE);
         packFile=new File(getFilesDir(),"uz-en-v1.tsv");
+        aiPackDir=new File(getFilesDir(),"ai-translation-v1");
         tts=new TextToSpeech(this,this);
         loadBuiltIn();
         if(packFile.exists()) loadPack(packFile);
@@ -42,7 +47,10 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private void loadBuiltIn(){
         pair("hello","salom"); pair("thank you","rahmat"); pair("please","iltimos");
         pair("sorry","kechirasiz"); pair("yes","ha"); pair("no","yo'q");
-        pair("how are you","qalaysiz"); pair("where are you","qayerdasiz");\n        pair("what are you doing","nima qilyapsiz"); pair("what do you do","nima ish qilasiz");\n        pair("where are you going","qayerga ketyapsiz"); pair("what are you looking for","nima qidiryapsiz");\n        pair("what do you want","nima xohlaysiz"); pair("what do you need","sizga nima kerak");
+        pair("how are you","qalaysiz"); pair("where are you","qayerdasiz");
+        pair("what are you doing","nima qilyapsiz"); pair("what do you do","nima ish qilasiz");
+        pair("where are you going","qayerga ketyapsiz"); pair("what are you looking for","nima qidiryapsiz");
+        pair("what do you want","nima xohlaysiz"); pair("what do you need","sizga nima kerak");
         pair("where are you from","qayerdansiz"); pair("i am fine","men yaxshiman");
         pair("what is your name","ismingiz nima"); pair("can you help me","menga yordam bera olasizmi");
         pair("where is the airport","aeroport qayerda"); pair("where is the hotel","mehmonxona qayerda");
@@ -268,6 +276,17 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         Button download=button(packFile.exists()?"UPDATE OFFLINE PACK":"DOWNLOAD UZBEK–ENGLISH PACK");
         c.addView(download);
 
+        c.addView(text("AI Translation Pack",19,true));
+        aiPackStatus=text(isAiPackReady()
+            ?"✓ AI pack installed — neural model files are ready"
+            :"Not installed • about 143 MB download",15,false);
+        c.addView(aiPackStatus);
+        Button aiDownload=button(isAiPackReady()
+            ?"REINSTALL AI TRANSLATION PACK"
+            :"DOWNLOAD AI TRANSLATION PACK");
+        c.addView(aiDownload);
+        c.addView(text("This installs the English↔Uzbek neural model files for offline AI translation.",14,false));
+
         c.addView(text("Common phrases",19,true));
         String[] p={"Where are you? — Qayerdasiz?","Hello — Salom","Thank you — Rahmat","How are you? — Qalaysiz?","Please — Iltimos","Sorry — Kechirasiz","Can you help me? — Menga yordam bera olasizmi?","Where is the airport? — Aeroport qayerda?"};
         for(String s:p)c.addView(text(s,16,false));
@@ -285,6 +304,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         save.setOnClickListener(v->saveFavorite());
         saved.setOnClickListener(v->showSaved());
         download.setOnClickListener(v->downloadPack(download));
+        aiDownload.setOnClickListener(v->downloadAiPack(aiDownload));
     }
 
     private void downloadPack(Button button){
@@ -315,6 +335,123 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                     button.setText(packFile.exists()?"UPDATE OFFLINE PACK":"DOWNLOAD UZBEK–ENGLISH PACK");
                     button.setEnabled(true);toast("Download failed");
                 });
+            }
+        }).start();
+    }
+
+    private boolean isAiPackReady(){
+        File enModel=new File(aiPackDir,"ai-pack/en-uz/model.bin");
+        File uzModel=new File(aiPackDir,"ai-pack/uz-en/model.bin");
+        File enConfig=new File(aiPackDir,"ai-pack/en-uz/config.json");
+        File uzConfig=new File(aiPackDir,"ai-pack/uz-en/config.json");
+        return enModel.isFile() && uzModel.isFile() && enConfig.isFile() && uzConfig.isFile();
+    }
+
+    private void deleteRecursive(File f){
+        if(f==null || !f.exists()) return;
+        if(f.isDirectory()){
+            File[] children=f.listFiles();
+            if(children!=null) for(File child:children) deleteRecursive(child);
+        }
+        f.delete();
+    }
+
+    private void unzipSafely(File zipFile, File destination) throws IOException {
+        String root=destination.getCanonicalPath()+File.separator;
+        try(ZipInputStream zin=new ZipInputStream(new BufferedInputStream(new FileInputStream(zipFile)))){
+            ZipEntry entry;
+            byte[] buffer=new byte[16384];
+            while((entry=zin.getNextEntry())!=null){
+                File out=new File(destination,entry.getName());
+                String outPath=out.getCanonicalPath();
+                if(!outPath.startsWith(root)) throw new IOException("Unsafe ZIP entry");
+                if(entry.isDirectory()){
+                    if(!out.exists() && !out.mkdirs()) throw new IOException("Could not create folder");
+                }else{
+                    File parent=out.getParentFile();
+                    if(parent!=null && !parent.exists() && !parent.mkdirs()) throw new IOException("Could not create folder");
+                    try(FileOutputStream fos=new FileOutputStream(out)){
+                        int n;
+                        while((n=zin.read(buffer))>0) fos.write(buffer,0,n);
+                    }
+                }
+                zin.closeEntry();
+            }
+        }
+    }
+
+    private void downloadAiPack(Button button){
+        button.setEnabled(false);
+        button.setText("AI PACK DOWNLOADING...");
+        aiPackStatus.setText("Downloading about 143 MB… Keep the app open.");
+
+        new Thread(()->{
+            File zipFile=new File(getCacheDir(),"ai-translation-v1.zip");
+            File tempDir=new File(getFilesDir(),"ai-translation-v1.tmp");
+            try{
+                deleteRecursive(tempDir);
+                if(!tempDir.mkdirs()) throw new IOException("Could not prepare model folder");
+
+                HttpURLConnection con=(HttpURLConnection)new URL(AI_PACK_URL).openConnection();
+                con.setInstanceFollowRedirects(true);
+                con.setConnectTimeout(20000);
+                con.setReadTimeout(60000);
+                con.setRequestProperty("User-Agent","UzbekEnglishApp/3.0");
+                int code=con.getResponseCode();
+                if(code!=200) throw new IOException("HTTP "+code);
+
+                long total=con.getContentLengthLong();
+                long received=0;
+                try(InputStream in=new BufferedInputStream(con.getInputStream());
+                    FileOutputStream out=new FileOutputStream(zipFile)){
+                    byte[] buf=new byte[32768];
+                    int len;
+                    int lastPercent=-1;
+                    while((len=in.read(buf))>0){
+                        out.write(buf,0,len);
+                        received+=len;
+                        if(total>0){
+                            int percent=(int)(received*100/total);
+                            if(percent>=lastPercent+5){
+                                lastPercent=percent;
+                                final int p=percent;
+                                runOnUiThread(()->aiPackStatus.setText("Downloading AI pack… "+p+"%"));
+                            }
+                        }
+                    }
+                }
+
+                runOnUiThread(()->{
+                    aiPackStatus.setText("Download complete. Installing model…");
+                    button.setText("INSTALLING AI PACK...");
+                });
+
+                unzipSafely(zipFile,tempDir);
+                if(!new File(tempDir,"ai-pack/en-uz/model.bin").isFile()
+                    || !new File(tempDir,"ai-pack/uz-en/model.bin").isFile()){
+                    throw new IOException("Model files missing after extraction");
+                }
+
+                deleteRecursive(aiPackDir);
+                if(!tempDir.renameTo(aiPackDir)) throw new IOException("Could not activate AI pack");
+                prefs.edit().putBoolean("ai_pack_installed",true).apply();
+
+                runOnUiThread(()->{
+                    aiPackStatus.setText("✓ AI pack installed — neural model files are ready");
+                    button.setText("REINSTALL AI TRANSLATION PACK");
+                    button.setEnabled(true);
+                    toast("AI Translation Pack installed");
+                });
+            }catch(Exception e){
+                deleteRecursive(tempDir);
+                runOnUiThread(()->{
+                    aiPackStatus.setText("AI pack installation failed. Check connection/storage and try again.");
+                    button.setText(isAiPackReady()?"REINSTALL AI TRANSLATION PACK":"DOWNLOAD AI TRANSLATION PACK");
+                    button.setEnabled(true);
+                    toast("AI pack install failed");
+                });
+            }finally{
+                zipFile.delete();
             }
         }).start();
     }
