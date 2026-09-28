@@ -135,14 +135,21 @@ jobs:
 
       - name: Package AI translation pack
         run: |
-          tar -czf Uzbek-English-AI-Translation-Pack-v1.tar.gz ai-pack
-          sha256sum Uzbek-English-AI-Translation-Pack-v1.tar.gz > Uzbek-English-AI-Translation-Pack-v1.sha256
+          zip -r -9 Uzbek-English-AI-Translation-Pack-v1.zip ai-pack
+          sha256sum Uzbek-English-AI-Translation-Pack-v1.zip > Uzbek-English-AI-Translation-Pack-v1.sha256
 
       - name: Upload AI translation pack
         uses: actions/upload-artifact@v4
         with:
           name: Uzbek-English-AI-Translation-Pack-v1
           path: |
-            Uzbek-English-AI-Translation-Pack-v1.tar.gz
+            Uzbek-English-AI-Translation-Pack-v1.zip
             Uzbek-English-AI-Translation-Pack-v1.sha256
           retention-days: 90
+
+      - name: Publish stable model release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ai-translation-v1 --yes --cleanup-tag || true
+          gh release create ai-translation-v1             Uzbek-English-AI-Translation-Pack-v1.zip             Uzbek-English-AI-Translation-Pack-v1.sha256             --title "Uzbek English AI Translation Pack v1"             --notes "Offline INT8 English↔Uzbek neural translation models for the Android app."
