@@ -66,6 +66,10 @@ if(NOT ctranslate2_POPULATED)
   file(WRITE "${CT2_THREAD_POOL}" "${CT2_THREAD_POOL_TEXT}")
 
   add_subdirectory("${ctranslate2_SOURCE_DIR}" "${ctranslate2_BINARY_DIR}")
+  if(TARGET ctranslate2)
+    set_target_properties(ctranslate2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    target_compile_options(ctranslate2 PRIVATE -fPIC)
+  endif()
 endif()
 
 add_library(tilmate_translation SHARED native_translation.cpp)
