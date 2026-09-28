@@ -72,6 +72,97 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
     private Button button(String s){Button b=new Button(this);b.setText(s);return b;}
 
+
+    private void showHome(){
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
+        TextView head=text("INGLIZ TILINI OSON O‘RGANING",24,true);
+        head.setTextColor(Color.WHITE);head.setGravity(Gravity.CENTER);
+        head.setBackgroundColor(Color.rgb(20,110,90));head.setPadding(18,32,18,32);
+        root.addView(head);
+
+        ScrollView sv=new ScrollView(this);
+        LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(22,22,22,30);
+        sv.addView(c);
+
+        c.addView(text("Assalomu alaykum!",22,true));
+        c.addView(text("Ingliz tilini 0 dan boshlab, o‘zbek tilida, bosqichma-bosqich o‘rganing.",17,false));
+
+        Button start=button("▶ 0 DAN BOSHLASH");
+        Button translator=button("⇄ TARJIMON");
+        Button words=button("📚 SO‘ZLAR");
+        Button progress=button("✓ MENING NATIJAM");
+        c.addView(start);c.addView(translator);c.addView(words);c.addView(progress);
+
+        c.addView(text("Boshlang‘ich darslar",20,true));
+        c.addView(text("1. Salomlashish\n2. Tanishish\n3. Raqamlar\n4. Oila\n5. Maktab va universitet\n6. Kundalik suhbat\n7. Do‘kon va bozor\n8. Safar va transport",16,false));
+
+        root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
+
+        start.setOnClickListener(v->showBeginnerLesson());
+        translator.setOnClickListener(v->showTranslator());
+        words.setOnClickListener(v->showWordLesson());
+        progress.setOnClickListener(v->showProgress());
+    }
+
+    private void showBeginnerLesson(){
+        LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(20,20,20,28);
+        Button back=button("← BOSH SAHIFA");r.addView(back);
+        r.addView(text("1-DARS: Salomlashish",24,true));
+        r.addView(text("Har bir so‘zni o‘qing, ma’nosini ko‘ring va ovoz chiqarib takrorlang.",16,false));
+
+        String[][] items={
+            {"Hello","Salom"},
+            {"Hi","Salom"},
+            {"Good morning","Xayrli tong"},
+            {"Good evening","Xayrli kech"},
+            {"Goodbye","Xayr"},
+            {"Thank you","Rahmat"},
+            {"Please","Iltimos"},
+            {"Sorry","Kechirasiz"},
+            {"How are you?","Qalaysiz?"},
+            {"I am fine.","Men yaxshiman."}
+        };
+        for(String[] x:items){
+            TextView card=text(x[0]+"\n"+x[1],20,true);
+            card.setBackgroundColor(Color.rgb(245,245,245));card.setPadding(18,18,18,18);
+            r.addView(card);
+            Button hear=button("🔊 ESHITISH: "+x[0]);
+            hear.setOnClickListener(v->{tts.setLanguage(Locale.US);tts.speak(x[0],TextToSpeech.QUEUE_FLUSH,null,x[0]);});
+            r.addView(hear);
+        }
+
+        r.addView(text("Kichik test",20,true));
+        r.addView(text("“Thank you” nimani anglatadi?",18,false));
+        Button a=button("A) Salom"), b=button("B) Rahmat"), d=button("C) Xayr");
+        r.addView(a);r.addView(b);r.addView(d);
+        a.setOnClickListener(v->toast("Yana urinib ko‘ring"));
+        b.setOnClickListener(v->{toast("To‘g‘ri!");prefs.edit().putInt("lesson_progress",1).apply();});
+        d.setOnClickListener(v->toast("Yana urinib ko‘ring"));
+        back.setOnClickListener(v->showHome());
+
+        ScrollView sv=new ScrollView(this);sv.addView(r);setContentView(sv);
+    }
+
+    private void showWordLesson(){
+        LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(20,20,20,28);
+        Button back=button("← BOSH SAHIFA");r.addView(back);
+        r.addView(text("Kundalik so‘zlar",24,true));
+        String[] words={"water — suv","food — ovqat","book — kitob","teacher — o‘qituvchi","student — talaba","house — uy","friend — do‘st","today — bugun","tomorrow — ertaga","money — pul"};
+        for(String w:words)r.addView(text(w,19,false));
+        back.setOnClickListener(v->showHome());
+        ScrollView sv=new ScrollView(this);sv.addView(r);setContentView(sv);
+    }
+
+    private void showProgress(){
+        LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(20,20,20,28);
+        Button back=button("← BOSH SAHIFA");r.addView(back);
+        int p=prefs.getInt("lesson_progress",0);
+        r.addView(text("Mening natijam",24,true));
+        r.addView(text(p>0?"✓ 1-dars testi bajarildi. Davom eting!":"Hali dars yakunlanmagan. “0 dan boshlash” orqali boshlang.",18,false));
+        back.setOnClickListener(v->showHome());
+        setContentView(r);
+    }
+
     private void showTranslator(){
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         TextView head=text("UZBEK ↔ ENGLISH",24,true);head.setTextColor(Color.WHITE);
@@ -82,6 +173,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(20,18,20,30);
         sv.addView(c);
 
+        Button home=button("← BOSH SAHIFA");c.addView(home);
         direction=text("English → Uzbek",20,true);c.addView(direction);
         input=new EditText(this);input.setHint("Type a word or phrase");input.setMinLines(3);
         input.setGravity(Gravity.TOP);c.addView(input,new LinearLayout.LayoutParams(-1,180));
@@ -114,7 +206,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
 
         root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
 
-        swap.setOnClickListener(v->{enToUz=!enToUz;direction.setText(enToUz?"English → Uzbek":"Uzbek → English");input.setText("");output.setText("Translation will appear here");});
+        home.setOnClickListener(v->showHome());\n        swap.setOnClickListener(v->{enToUz=!enToUz;direction.setText(enToUz?"English → Uzbek":"Uzbek → English");input.setText("");output.setText("Translation will appear here");});
         translate.setOnClickListener(v->translate());
         speak.setOnClickListener(v->speak());
         copy.setOnClickListener(v->{((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(android.content.ClipData.newPlainText("translation",output.getText()));toast("Copied");});
