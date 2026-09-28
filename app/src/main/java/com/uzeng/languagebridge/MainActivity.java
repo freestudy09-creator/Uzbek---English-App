@@ -206,7 +206,8 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
 
         root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
 
-        home.setOnClickListener(v->showHome());\n        swap.setOnClickListener(v->{enToUz=!enToUz;direction.setText(enToUz?"English → Uzbek":"Uzbek → English");input.setText("");output.setText("Translation will appear here");});
+        home.setOnClickListener(v->showHome());
+        swap.setOnClickListener(v->{enToUz=!enToUz;direction.setText(enToUz?"English → Uzbek":"Uzbek → English");input.setText("");output.setText("Translation will appear here");});
         translate.setOnClickListener(v->translate());
         speak.setOnClickListener(v->speak());
         copy.setOnClickListener(v->{((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(android.content.ClipData.newPlainText("translation",output.getText()));toast("Copied");});
