@@ -494,9 +494,10 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         input=new EditText(this);
         input.setHint("Type here • Shu yerga yozing");
         input.setMinLines(4);
-        input.setTextSize(20);
+        input.setTextSize(18);
         input.setGravity(Gravity.TOP);
-        input.setPadding(20,18,20,18);
+        input.setPadding(22,20,22,20);
+        input.setLineSpacing(6f,1.06f);
         input.setBackground(rounded(Color.WHITE,28));
         c.addView(input,new LinearLayout.LayoutParams(-1,210));
 
@@ -504,10 +505,12 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         liveLabel.setTextColor(Color.rgb(24,128,105));
         c.addView(liveLabel);
 
-        output=text("Translation will appear automatically\nTarjima avtomatik ko‘rinadi",22,true);
+        output=text("Translation will appear automatically\nTarjima avtomatik ko‘rinadi",18,false);
         output.setBackground(rounded(Color.WHITE,28));
-        output.setMinHeight(170);
-        output.setPadding(20,20,20,20);
+        output.setMinHeight(190);
+        output.setPadding(22,22,22,22);
+        output.setLineSpacing(8f,1.08f);
+        output.setGravity(Gravity.TOP|Gravity.START);
         output.setElevation(4);
         c.addView(output);
 
