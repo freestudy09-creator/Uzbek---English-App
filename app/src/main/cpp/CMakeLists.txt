@@ -37,6 +37,17 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(sentencepiece)
 
+# SentencePiece command-line targets are also pulled into Android's native build.
+# Its bundled protobuf logger calls __android_log_write, so link Android log
+# for those targets as well as for our JNI library.
+if(ANDROID)
+  foreach(spm_target spm_encode spm_decode spm_normalize spm_train spm_export_vocab)
+    if(TARGET ${spm_target})
+      target_link_libraries(${spm_target} log)
+    endif()
+  endforeach()
+endif()
+
 FetchContent_GetProperties(ctranslate2)
 if(NOT ctranslate2_POPULATED)
   FetchContent_Populate(ctranslate2)
