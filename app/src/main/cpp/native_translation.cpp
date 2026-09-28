@@ -1,0 +1,110 @@
+#include <jni.h>
+#include <android/log.h>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#include <ctranslate2/translator.h>
+#include <sentencepiece_processor.h>
+
+#define LOG_TAG "TilMateAI"
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+namespace {
+std::mutex g_mutex;
+std::unique_ptr<ctranslate2::Translator> g_translator;
+std::unique_ptr<sentencepiece::SentencePieceProcessor> g_sp;
+std::string g_model_path;
+std::string g_spm_path;
+
+std::string jstringToUtf8(JNIEnv* env, jstring value) {
+    if (!value) return {};
+    const char* chars = env->GetStringUTFChars(value, nullptr);
+    std::string out(chars ? chars : "");
+    if (chars) env->ReleaseStringUTFChars(value, chars);
+    return out;
+}
+
+jstring makeJavaString(JNIEnv* env, const std::string& value) {
+    return env->NewStringUTF(value.c_str());
+}
+
+void ensureEngine(const std::string& modelPath, const std::string& spmPath) {
+    if (g_translator && g_sp && g_model_path == modelPath && g_spm_path == spmPath) {
+        return;
+    }
+
+    g_translator.reset();
+    g_sp.reset();
+
+    auto sp = std::make_unique<sentencepiece::SentencePieceProcessor>();
+    auto status = sp->Load(spmPath);
+    if (!status.ok()) {
+        throw std::runtime_error("Could not load SentencePiece model: " + status.ToString());
+    }
+
+    auto translator = std::make_unique<ctranslate2::Translator>(
+        modelPath,
+        ctranslate2::Device::CPU
+    );
+
+    g_sp = std::move(sp);
+    g_translator = std::move(translator);
+    g_model_path = modelPath;
+    g_spm_path = spmPath;
+}
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_uzeng_languagebridge_MainActivity_nativeTranslate(
+    JNIEnv* env,
+    jclass,
+    jstring modelPathJ,
+    jstring spmPathJ,
+    jstring textJ) {
+
+    try {
+        const std::string modelPath = jstringToUtf8(env, modelPathJ);
+        const std::string spmPath = jstringToUtf8(env, spmPathJ);
+        const std::string text = jstringToUtf8(env, textJ);
+
+        if (modelPath.empty() || spmPath.empty() || text.empty()) {
+            return makeJavaString(env, "");
+        }
+
+        std::lock_guard<std::mutex> lock(g_mutex);
+        ensureEngine(modelPath, spmPath);
+
+        std::vector<std::string> inputTokens;
+        auto encodeStatus = g_sp->Encode(text, &inputTokens);
+        if (!encodeStatus.ok()) {
+            throw std::runtime_error("Tokenization failed: " + encodeStatus.ToString());
+        }
+
+        ctranslate2::TranslationOptions options;
+        options.beam_size = 2;
+        options.max_decoding_length = 128;
+
+        const std::vector<std::vector<std::string>> batch = {inputTokens};
+        const auto results = g_translator->translate_batch(batch, options);
+        if (results.empty() || results[0].hypotheses.empty()) {
+            throw std::runtime_error("Translation returned no result");
+        }
+
+        std::string decoded;
+        auto decodeStatus = g_sp->Decode(results[0].hypotheses[0], &decoded);
+        if (!decodeStatus.ok()) {
+            throw std::runtime_error("Detokenization failed: " + decodeStatus.ToString());
+        }
+
+        return makeJavaString(env, decoded);
+    } catch (const std::exception& e) {
+        LOGE("Native translation error: %s", e.what());
+        jclass ex = env->FindClass("java/lang/RuntimeException");
+        if (ex) env->ThrowNew(ex, e.what());
+        return nullptr;
+    }
+}
