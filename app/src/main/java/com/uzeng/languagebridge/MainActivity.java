@@ -7,6 +7,11 @@ import android.graphics.drawable.GradientDrawable;
 import android.content.*;
 import android.text.*;
 import android.speech.tts.TextToSpeech;
+import android.speech.SpeechRecognizer;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.content.pm.PackageManager;
+import android.Manifest;
 import android.view.*;
 import android.widget.*;
 import java.io.*;
@@ -27,6 +32,9 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private TextView output,direction,packStatus,aiPackStatus;
     private boolean enToUz=true;
     private TextToSpeech tts;
+    private SpeechRecognizer speechRecognizer;
+    private boolean listening=false;
+    private static final int REQ_RECORD_AUDIO=42;
     private SharedPreferences prefs;
     private File packFile;
     private File aiPackDir;
@@ -45,6 +53,25 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         aiPackDir=new File(getFilesDir(),"ai-translation-v1");
         voiceSpeed=prefs.getFloat("voice_speed",0.86f);
         tts=new TextToSpeech(this,this);
+        if(SpeechRecognizer.isRecognitionAvailable(this)){
+            speechRecognizer=SpeechRecognizer.createSpeechRecognizer(this);
+            speechRecognizer.setRecognitionListener(new RecognitionListener(){
+                @Override public void onReadyForSpeech(Bundle params){listening=true;}
+                @Override public void onBeginningOfSpeech(){}
+                @Override public void onRmsChanged(float rmsdB){}
+                @Override public void onBufferReceived(byte[] buffer){}
+                @Override public void onEndOfSpeech(){listening=false;}
+                @Override public void onError(int error){listening=false;}
+                @Override public void onResults(Bundle results){
+                    listening=false;
+                    applySpeechResults(results);
+                }
+                @Override public void onPartialResults(Bundle partialResults){
+                    applySpeechResults(partialResults);
+                }
+                @Override public void onEvent(int eventType,Bundle params){}
+            });
+        }
         loadBuiltIn();
         if(packFile.exists()) loadPack(packFile);
         showHome();
@@ -515,12 +542,15 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         c.addView(output);
 
         LinearLayout tools=new LinearLayout(this);
-        Button speak=button("🔊 SPEAK");
-        Button copy=button("COPY");
-        Button save=button("★ SAVE");
-        tools.addView(speak,new LinearLayout.LayoutParams(0,120,1));
-        tools.addView(copy,new LinearLayout.LayoutParams(0,120,1));
-        tools.addView(save,new LinearLayout.LayoutParams(0,120,1));
+        Button mic=button("🎤");
+        Button speak=button("🔊");
+        Button copy=button("⧉");
+        Button save=button("★");
+        mic.setTextSize(24);speak.setTextSize(24);copy.setTextSize(24);save.setTextSize(22);
+        tools.addView(mic,new LinearLayout.LayoutParams(0,110,1));
+        tools.addView(speak,new LinearLayout.LayoutParams(0,110,1));
+        tools.addView(copy,new LinearLayout.LayoutParams(0,110,1));
+        tools.addView(save,new LinearLayout.LayoutParams(0,110,1));
         c.addView(tools);
 
         c.addView(text("Offline language pack",19,true));
@@ -573,6 +603,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
 
         menu.setOnClickListener(v->showMainMenu());
         home.setOnClickListener(v->showHome());
+        mic.setOnClickListener(v->startVoiceTranslation());
         speak.setOnClickListener(v->speak());
         copy.setOnClickListener(v->{
             ((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE))
@@ -583,6 +614,50 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         saved.setOnClickListener(v->showSaved());
         download.setOnClickListener(v->downloadPack(download));
         aiDownload.setOnClickListener(v->downloadAiPack(aiDownload));
+    }
+
+    private void startVoiceTranslation(){
+        if(speechRecognizer==null){
+            toast("Speech recognition is not available on this phone");
+            return;
+        }
+        if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},REQ_RECORD_AUDIO);
+            return;
+        }
+        Intent intent=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true);
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,3);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,enToUz?"en-US":"uz-UZ");
+        input.setHint(enToUz?"Listening in English…":"O‘zbekcha tinglanmoqda…");
+        try{
+            speechRecognizer.cancel();
+            speechRecognizer.startListening(intent);
+            listening=true;
+        }catch(Exception e){
+            listening=false;
+            toast("Could not start microphone");
+        }
+    }
+
+    private void applySpeechResults(Bundle bundle){
+        if(bundle==null||input==null)return;
+        ArrayList<String> matches=bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if(matches==null||matches.isEmpty())return;
+        String spoken=matches.get(0).trim();
+        if(spoken.isEmpty())return;
+        input.setText(spoken);
+        input.setSelection(input.length());
+        translateLive();
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if(requestCode==REQ_RECORD_AUDIO){
+            if(grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED) startVoiceTranslation();
+            else toast("Microphone permission is needed for voice translation");
+        }
     }
 
     private File findSpm(File dir){
@@ -846,5 +921,9 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
     @Override public void onInit(int status){if(status==TextToSpeech.SUCCESS){tts.setSpeechRate(voiceSpeed);tts.setPitch(1.0f);}}
-    @Override protected void onDestroy(){if(tts!=null)tts.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){
+        if(speechRecognizer!=null){speechRecognizer.cancel();speechRecognizer.destroy();}
+        if(tts!=null)tts.shutdown();
+        super.onDestroy();
+    }
 }
