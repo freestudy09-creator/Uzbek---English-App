@@ -30,6 +30,11 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private SharedPreferences prefs;
     private File packFile;
     private File aiPackDir;
+    private float voiceSpeed=0.86f;
+    private static final int TEAL=Color.rgb(27,154,132);
+    private static final int BLUE=Color.rgb(53,120,212);
+    private static final int YELLOW=Color.rgb(255,209,102);
+    private static final int BG=Color.rgb(244,250,249);
     private static final String PACK_URL="https://raw.githubusercontent.com/freestudy09-creator/Uzbek---English-App/main/language-packs/uz-en-v1.tsv";
     private static final String AI_PACK_URL="https://github.com/freestudy09-creator/Uzbek---English-App/releases/download/ai-translation-v1/Uzbek-English-AI-Translation-Pack-v1.zip";
 
@@ -38,6 +43,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         prefs=getSharedPreferences("uzeng",MODE_PRIVATE);
         packFile=new File(getFilesDir(),"uz-en-v1.tsv");
         aiPackDir=new File(getFilesDir(),"ai-translation-v1");
+        voiceSpeed=prefs.getFloat("voice_speed",0.86f);
         tts=new TextToSpeech(this,this);
         loadBuiltIn();
         if(packFile.exists()) loadPack(packFile);
@@ -109,11 +115,33 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         b.setTextColor(Color.WHITE);
         b.setTypeface(null,1);
         b.setPadding(18,8,18,8);
-        b.setBackground(gradient(Color.rgb(24,128,105),Color.rgb(41,98,173),28));
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,142);
-        lp.setMargins(0,10,0,10);
+        b.setBackground(gradient(TEAL,BLUE,32));
+        b.setElevation(4);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,132);
+        lp.setMargins(0,9,0,9);
         b.setLayoutParams(lp);
         return b;
+    }
+
+    private TextView pill(String s,int bg){
+        TextView v=text(s,14,true);
+        v.setTextColor(Color.rgb(25,36,48));
+        v.setGravity(Gravity.CENTER);
+        v.setBackground(rounded(bg,40));
+        v.setPadding(18,10,18,10);
+        return v;
+    }
+
+    private LinearLayout sectionCard(){
+        LinearLayout box=new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(22,18,22,18);
+        box.setBackground(rounded(Color.WHITE,30));
+        box.setElevation(5);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+        lp.setMargins(0,10,0,10);
+        box.setLayoutParams(lp);
+        return box;
     }
 
     private TextView card(String title,String subtitle){
@@ -130,63 +158,223 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private void showHome(){
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackground(gradient(Color.rgb(239,248,246),Color.rgb(236,242,252),0));
+        root.setBackground(gradient(Color.rgb(240,250,247),Color.rgb(238,244,255),0));
+
+        LinearLayout top=new LinearLayout(this);
+        top.setOrientation(LinearLayout.HORIZONTAL);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setPadding(18,16,18,12);
+
+        Button menu=button("☰");
+        menu.setTextSize(22);
+        LinearLayout.LayoutParams menuLp=new LinearLayout.LayoutParams(100,100);
+        menu.setLayoutParams(menuLp);
+        top.addView(menu);
+
+        TextView brand=text("TilMate",25,true);
+        brand.setTextColor(Color.WHITE);
+        brand.setGravity(Gravity.CENTER);
+        brand.setBackground(gradient(TEAL,BLUE,30));
+        LinearLayout.LayoutParams brandLp=new LinearLayout.LayoutParams(0,100,1);
+        brandLp.setMargins(12,0,0,0);
+        top.addView(brand,brandLp);
+        root.addView(top);
 
         ScrollView sv=new ScrollView(this);
         LinearLayout c=new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
-        c.setPadding(24,26,24,40);
+        c.setPadding(22,6,22,120);
         sv.addView(c);
 
-        TextView logo=text("UZ  •  EN",18,true);
-        logo.setTextColor(Color.WHITE);
-        logo.setGravity(Gravity.CENTER);
-        logo.setBackground(gradient(Color.rgb(18,139,113),Color.rgb(37,93,170),50));
-        logo.setPadding(18,14,18,14);
-        LinearLayout.LayoutParams logoLp=new LinearLayout.LayoutParams(250,80);
-        logoLp.gravity=Gravity.CENTER_HORIZONTAL;
-        logo.setLayoutParams(logoLp);
-        logo.setElevation(8);
-        c.addView(logo);
-
-        TextView title=text("Ingliz tilini oson o‘rganing",30,true);
+        LinearLayout hero=sectionCard();
+        TextView mascot=text("💬",46,true);
+        mascot.setGravity(Gravity.CENTER);
+        hero.addView(mascot);
+        TextView title=text("Ingliz tilini oson o‘rganing\nLearn English easily",28,true);
         title.setGravity(Gravity.CENTER);
-        title.setPadding(8,28,8,6);
-        c.addView(title);
+        hero.addView(title);
+        TextView sub=text("O‘zbekcha + English • Learn • Translate • Speak",15,false);
+        sub.setGravity(Gravity.CENTER);
+        sub.setTextColor(Color.rgb(95,105,118));
+        hero.addView(sub);
+        c.addView(hero);
 
-        TextView subtitle=text("O‘zbek tilida • Oflayn • Bosqichma-bosqich",16,false);
-        subtitle.setGravity(Gravity.CENTER);
-        subtitle.setTextColor(Color.rgb(90,102,118));
-        c.addView(subtitle);
+        LinearLayout goal=sectionCard();
+        goal.addView(text("🔥 Bugungi maqsad • Today’s goal",19,true));
+        ProgressBar pb=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
+        pb.setMax(100);pb.setProgress(prefs.getInt("daily_progress",20));
+        goal.addView(pb,new LinearLayout.LayoutParams(-1,28));
+        goal.addView(text("10 daqiqa • 5 words • 1 mini quiz",14,false));
+        c.addView(goal);
 
-        TextView welcome=card("Assalomu alaykum 👋","Bugun 10 daqiqa o‘rganishdan boshlang.");
-        c.addView(welcome);
-
-        c.addView(text("Darajangizni tanlang",21,true));
-
-        Button beginner=button("🌱  0 DAN BOSHLASH");
-        Button medium=button("📘  O‘RTA DARAJA");
-        Button advanced=button("🚀  YUQORI DARAJA");
+        c.addView(text("Darajangiz • Your level",21,true));
+        Button beginner=button("🌱  BEGINNER • 0 DAN BOSHLASH");
+        Button medium=button("📘  INTERMEDIATE • O‘RTA DARAJA");
+        Button advanced=button("🚀  ADVANCED • YUQORI DARAJA");
         c.addView(beginner);c.addView(medium);c.addView(advanced);
 
-        c.addView(text("Tezkor imkoniyatlar",21,true));
-        Button translator=button("⇄  TARJIMON");
-        Button words=button("📚  KUNDALIK SO‘ZLAR");
-        Button progress=button("🏆  MENING NATIJAM");
-        c.addView(translator);c.addView(words);c.addView(progress);
+        c.addView(text("Tezkor • Quick access",21,true));
+        LinearLayout quick1=new LinearLayout(this);
+        quick1.setOrientation(LinearLayout.HORIZONTAL);
+        Button translator=button("⇄  Translate");
+        Button words=button("📚  Words");
+        quick1.addView(translator,new LinearLayout.LayoutParams(0,125,1));
+        quick1.addView(words,new LinearLayout.LayoutParams(0,125,1));
+        c.addView(quick1);
 
-        TextView daily=card("Bugungi maqsad","5 ta yangi so‘z • 1 ta mini test • 5 daqiqa tinglash");
-        c.addView(daily);
+        LinearLayout quick2=new LinearLayout(this);
+        quick2.setOrientation(LinearLayout.HORIZONTAL);
+        Button practice=button("🎯  Practice");
+        Button progress=button("🏆  Progress");
+        quick2.addView(practice,new LinearLayout.LayoutParams(0,125,1));
+        quick2.addView(progress,new LinearLayout.LayoutParams(0,125,1));
+        c.addView(quick2);
+
+        LinearLayout streak=sectionCard();
+        streak.addView(text("⭐  Streak • Ketma-ket kunlar",18,true));
+        streak.addView(text(prefs.getInt("streak",1)+" day streak • "+prefs.getInt("xp",0)+" XP",16,false));
+        c.addView(streak);
 
         root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));
+
+        LinearLayout bottom=new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.HORIZONTAL);
+        bottom.setGravity(Gravity.CENTER);
+        bottom.setPadding(8,8,8,8);
+        bottom.setBackgroundColor(Color.WHITE);
+        String[] labels={"🏠\nHome","📚\nLearn","⇄\nTranslate","🎯\nPractice","👤\nProfile"};
+        for(int i=0;i<labels.length;i++){
+            TextView item=pill(labels[i],i==0?Color.rgb(228,248,243):Color.WHITE);
+            final int idx=i;
+            item.setOnClickListener(v->{
+                if(idx==0) showHome();
+                else if(idx==1) showBeginnerLesson();
+                else if(idx==2) showTranslator();
+                else if(idx==3) showPractice();
+                else showProgress();
+            });
+            bottom.addView(item,new LinearLayout.LayoutParams(0,90,1));
+        }
+        root.addView(bottom);
         setContentView(root);
 
+        menu.setOnClickListener(v->showMainMenu());
         beginner.setOnClickListener(v->showBeginnerLesson());
-        medium.setOnClickListener(v->toast("O‘rta daraja darslari tayyorlanmoqda"));
-        advanced.setOnClickListener(v->toast("Yuqori daraja darslari tayyorlanmoqda"));
+        medium.setOnClickListener(v->showLevelPage("INTERMEDIATE • O‘RTA DARAJA",
+            new String[]{"Present & past tenses • Hozirgi va o‘tgan zamon","Travel conversations • Safar suhbatlari","Work & university • Ish va universitet","Listening practice • Tinglab tushunish"}));
+        advanced.setOnClickListener(v->showLevelPage("ADVANCED • YUQORI DARAJA",
+            new String[]{"Fluent conversation • Ravon suhbat","Academic English • Akademik ingliz tili","Presentations & writing • Taqdimot va yozuv","Idioms & natural speech • Tabiiy nutq"}));
         translator.setOnClickListener(v->showTranslator());
         words.setOnClickListener(v->showWordLesson());
+        practice.setOnClickListener(v->showPractice());
         progress.setOnClickListener(v->showProgress());
+    }
+
+    private void showMainMenu(){
+        String[] items={
+            "🏠 Home • Bosh sahifa",
+            "📚 Learn • O‘rganish",
+            "⇄ Translator • Tarjimon",
+            "⬇ Offline packs • Oflayn paketlar",
+            "★ Favorites • Saqlanganlar",
+            "🔊 Voice settings • Ovoz",
+            "🏆 Progress • Natijalar",
+            "ℹ About TilMate",
+            "🔒 Privacy"
+        };
+        new AlertDialog.Builder(this)
+            .setTitle("TilMate • Menu")
+            .setItems(items,(d,which)->{
+                if(which==0) showHome();
+                else if(which==1) showBeginnerLesson();
+                else if(which==2) showTranslator();
+                else if(which==3) showTranslator();
+                else if(which==4) showSaved();
+                else if(which==5) showVoiceSettings();
+                else if(which==6) showProgress();
+                else if(which==7) showAbout();
+                else showPrivacy();
+            })
+            .setNegativeButton("Close • Yopish",null)
+            .show();
+    }
+
+    private void showLevelPage(String titleText,String[] lessons){
+        LinearLayout r=new LinearLayout(this);
+        r.setOrientation(LinearLayout.VERTICAL);
+        r.setPadding(20,20,20,30);
+        r.setBackground(gradient(Color.rgb(240,250,247),Color.rgb(238,244,255),0));
+        Button back=button("← Home • Bosh sahifa");
+        r.addView(back);
+        r.addView(text(titleText,25,true));
+        r.addView(text("Choose a lesson • Darsni tanlang",16,false));
+        for(String lesson:lessons){
+            LinearLayout box=sectionCard();
+            box.addView(text("✓ "+lesson,18,true));
+            box.addView(text("Tap to open • Ochish uchun bosing",14,false));
+            r.addView(box);
+        }
+        back.setOnClickListener(v->showHome());
+        ScrollView sv=new ScrollView(this);sv.addView(r);setContentView(sv);
+    }
+
+    private void showPractice(){
+        LinearLayout r=new LinearLayout(this);
+        r.setOrientation(LinearLayout.VERTICAL);
+        r.setPadding(20,20,20,30);
+        r.setBackground(gradient(Color.rgb(240,250,247),Color.rgb(238,244,255),0));
+        Button back=button("← Home • Bosh sahifa");r.addView(back);
+        r.addView(text("🎯 Daily Practice • Kundalik mashq",25,true));
+        String[][] items={{"Word of the day","confident — ishonchli"},{"Phrase of the day","How can I help you? — Sizga qanday yordam bera olaman?"},{"Listening","Listen and repeat 3 sentences"},{"Quick quiz","5 questions • 2 minutes"}};
+        for(String[] x:items){
+            LinearLayout box=sectionCard();
+            box.addView(text(x[0],18,true));
+            box.addView(text(x[1],15,false));
+            r.addView(box);
+        }
+        back.setOnClickListener(v->showHome());
+        ScrollView sv=new ScrollView(this);sv.addView(r);setContentView(sv);
+    }
+
+    private void showVoiceSettings(){
+        String[] choices={"Slow • Sekin (0.75×)","Clear • Aniq (0.86×)","Normal • Oddiy (1.0×)","Test English voice","Test Uzbek voice"};
+        new AlertDialog.Builder(this)
+            .setTitle("🔊 Voice settings • Ovoz")
+            .setItems(choices,(d,which)->{
+                if(which<=2){
+                    voiceSpeed=which==0?0.75f:(which==1?0.86f:1.0f);
+                    prefs.edit().putFloat("voice_speed",voiceSpeed).apply();
+                    if(tts!=null)tts.setSpeechRate(voiceSpeed);
+                    toast("Voice speed saved");
+                }else if(which==3) speakTest("Welcome to TilMate. Learn English step by step.",Locale.US);
+                else speakTest("Assalomu alaykum. TilMate bilan ingliz tilini o‘rganamiz.",new Locale("uz","UZ"));
+            })
+            .setNegativeButton("Close • Yopish",null).show();
+    }
+
+    private void speakTest(String phrase,Locale locale){
+        if(tts==null)return;
+        int a=tts.isLanguageAvailable(locale);
+        if(a==TextToSpeech.LANG_MISSING_DATA||a==TextToSpeech.LANG_NOT_SUPPORTED){
+            toast("This voice is not installed on your phone");
+            return;
+        }
+        tts.setLanguage(locale);tts.setSpeechRate(voiceSpeed);tts.setPitch(1.0f);
+        tts.speak(phrase,TextToSpeech.QUEUE_FLUSH,null,"voice-test");
+    }
+
+    private void showAbout(){
+        new AlertDialog.Builder(this)
+            .setTitle("TilMate")
+            .setMessage("TilMate: English ↔ Uzbek\n\nLearn • Translate • Speak\nO‘rganing • Tarjima qiling • Gapiring\n\nVersion 3.0")
+            .setPositiveButton("OK",null).show();
+    }
+
+    private void showPrivacy(){
+        new AlertDialog.Builder(this)
+            .setTitle("Privacy • Maxfiylik")
+            .setMessage("TilMate stores learning progress, favorites and downloaded language packs on your device. A full Play Store privacy policy will be linked before public release.")
+            .setPositiveButton("OK",null).show();
     }
 
     private void showBeginnerLesson(){
@@ -253,7 +441,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackground(gradient(Color.rgb(239,248,246),Color.rgb(236,242,252),0));
 
-        TextView head=text("UZBEK ↔ ENGLISH",24,true);
+        TextView head=text("TilMate • Translator",24,true);
         head.setTextColor(Color.WHITE);
         head.setBackground(gradient(Color.rgb(18,139,113),Color.rgb(37,93,170),0));
         head.setGravity(Gravity.CENTER);
@@ -266,8 +454,11 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         c.setPadding(20,18,20,30);
         sv.addView(c);
 
-        Button home=button("← BOSH SAHIFA • HOME");
-        c.addView(home);
+        LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
+        Button menu=button("☰");Button home=button("← HOME • BOSH SAHIFA");
+        nav.addView(menu,new LinearLayout.LayoutParams(100,110));
+        nav.addView(home,new LinearLayout.LayoutParams(0,110,1));
+        c.addView(nav);
 
         LinearLayout languageBar=new LinearLayout(this);
         languageBar.setOrientation(LinearLayout.HORIZONTAL);
@@ -377,6 +568,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             translateLive();
         });
 
+        menu.setOnClickListener(v->showMainMenu());
         home.setOnClickListener(v->showHome());
         speak.setOnClickListener(v->speak());
         copy.setOnClickListener(v->{
@@ -638,11 +830,18 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void speak(){
-        String s=output.getText().toString();
-        if(s.startsWith("Translation")){toast("Translate something first");return;}
-        tts.setLanguage(enToUz?new Locale("uz","UZ"):Locale.US);tts.speak(s,TextToSpeech.QUEUE_FLUSH,null,"translation");
+        String s=output==null?"":output.getText().toString();
+        if(s.isEmpty()||s.startsWith("Translation")||s.startsWith("Tarjima")){toast("Translate something first");return;}
+        Locale locale=enToUz?new Locale("uz","UZ"):Locale.US;
+        int a=tts.isLanguageAvailable(locale);
+        if(a==TextToSpeech.LANG_MISSING_DATA||a==TextToSpeech.LANG_NOT_SUPPORTED){
+            toast("Voice not installed. Open Voice settings.");
+            return;
+        }
+        tts.setLanguage(locale);tts.setSpeechRate(voiceSpeed);tts.setPitch(1.0f);
+        tts.speak(s,TextToSpeech.QUEUE_FLUSH,null,"translation");
     }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
-    @Override public void onInit(int status){}
+    @Override public void onInit(int status){if(status==TextToSpeech.SUCCESS){tts.setSpeechRate(voiceSpeed);tts.setPitch(1.0f);}}
     @Override protected void onDestroy(){if(tts!=null)tts.shutdown();super.onDestroy();}
 }
