@@ -59,6 +59,12 @@ add_library(tilmate_translation SHARED native_translation.cpp)
 
 target_compile_features(tilmate_translation PRIVATE cxx_std_17)
 
+target_include_directories(
+  tilmate_translation
+  PRIVATE
+  "${sentencepiece_SOURCE_DIR}/src"
+)
+
 target_link_libraries(
   tilmate_translation
   ctranslate2
