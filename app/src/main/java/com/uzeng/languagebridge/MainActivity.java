@@ -334,7 +334,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                 if(which==0) showHome();
                 else if(which==1) showBeginnerLesson();
                 else if(which==2) showTranslator();
-                else if(which==3) showTranslator();
+                else if(which==3) showOfflinePacks();
                 else if(which==4) showSaved();
                 else if(which==5) showVoiceSettings();
                 else if(which==6) showProgress();
@@ -629,36 +629,19 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         liveLabel.setPadding(4,2,4,10);
         c.addView(liveLabel);
 
-        LinearLayout packs=sectionCard();
-        packs.setPadding(16,12,16,12);
-        packs.addView(text("Offline translation",17,true));
+        TextView engineStatus=text(
+            isAiPackReady()?"✓ AI translation ready":"AI translation pack required for full sentences",
+            12,false);
+        engineStatus.setTextColor(isAiPackReady()?Color.rgb(24,128,105):Color.rgb(130,100,35));
+        engineStatus.setGravity(Gravity.CENTER);
+        engineStatus.setPadding(4,8,4,8);
+        c.addView(engineStatus);
 
-        packStatus=text(packFile.exists()
-            ?"✓ Basic Uzbek–English pack ready ("+enUz.size()+" entries)"
-            :"Basic offline pack not downloaded",14,false);
-        packs.addView(packStatus);
-
-        Button download=button(packFile.exists()
-            ?"Update basic pack"
-            :"Download basic pack");
-        download.setTextSize(14);
-        packs.addView(download);
-
-        aiPackStatus=text(isAiPackReady()
-            ?"✓ AI translation ready on this device"
-            :"AI translation pack not installed • about 143 MB",14,false);
-        packs.addView(aiPackStatus);
-
-        Button aiDownload=button(isAiPackReady()
-            ?"Reinstall AI translation"
-            :"Download AI translation");
-        aiDownload.setTextSize(14);
-        packs.addView(aiDownload);
-
-        Button saved=button("Recent & favorites");
-        saved.setTextSize(14);
-        packs.addView(saved);
-        c.addView(packs);
+        TextView packSettings=text("Offline packs & settings",13,false);
+        packSettings.setTextColor(BLUE);
+        packSettings.setGravity(Gravity.CENTER);
+        packSettings.setPadding(4,6,4,14);
+        c.addView(packSettings);
 
         root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));
         setContentView(root);
@@ -703,9 +686,57 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             toast("Copied");
         });
         save.setOnClickListener(v->saveFavorite());
-        saved.setOnClickListener(v->showSaved());
+        packSettings.setOnClickListener(v->showOfflinePacks());
+    }
+
+    private void showOfflinePacks(){
+        if(continuousVoice) stopVoiceTranslation();
+        currentScreen="offline";
+
+        LinearLayout r=new LinearLayout(this);
+        r.setOrientation(LinearLayout.VERTICAL);
+        r.setPadding(20,18,20,30);
+        r.setBackgroundColor(Color.rgb(250,252,252));
+
+        TextView back=text("←  Translator",17,true);
+        back.setPadding(8,12,8,16);
+        r.addView(back);
+
+        r.addView(text("Offline translation",24,true));
+        r.addView(text("Manage translation models here. The main translator stays clean and focused.",14,false));
+
+        LinearLayout basic=sectionCard();
+        basic.addView(text("Basic Uzbek–English pack",18,true));
+        packStatus=text(packFile.exists()
+            ?"✓ Ready ("+enUz.size()+" entries)"
+            :"Not downloaded yet",14,false);
+        basic.addView(packStatus);
+        Button download=button(packFile.exists()?"Update basic pack":"Download basic pack");
+        download.setTextSize(14);
+        basic.addView(download);
+        r.addView(basic);
+
+        LinearLayout ai=sectionCard();
+        ai.addView(text("AI Translation Pack",18,true));
+        aiPackStatus=text(isAiPackReady()
+            ?"✓ AI translation ready on this device"
+            :"Not installed • about 143 MB",14,false);
+        ai.addView(aiPackStatus);
+        Button aiDownload=button(isAiPackReady()
+            ?"Reinstall AI translation"
+            :"Download AI translation");
+        aiDownload.setTextSize(14);
+        ai.addView(aiDownload);
+        ai.addView(text("Recommended for full sentences and live conversation.",13,false));
+        r.addView(ai);
+
+        back.setOnClickListener(v->showTranslator());
         download.setOnClickListener(v->downloadPack(download));
         aiDownload.setOnClickListener(v->downloadAiPack(aiDownload));
+
+        ScrollView sv=new ScrollView(this);
+        sv.addView(r);
+        setContentView(sv);
     }
 
     private void startVoiceTranslation(){
@@ -875,11 +906,54 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         });
     }
 
+    private String normalizeRecognizedSpeech(String text){
+        if(text==null) return "";
+        String s=text.trim().replaceAll("\\s+"," ");
+        if(enToUz){
+            s=s.replaceAll("(?i)\\b(team\\s*mate|tell\\s*mate|til\\s*mate|teammate|tellmate|telmate)\\b","TilMate");
+        }
+        return s;
+    }
+
+    private String chooseBestRecognition(Bundle bundle,boolean isFinal){
+        ArrayList<String> matches=bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+        if(matches==null||matches.isEmpty()) return "";
+
+        float[] confidences=bundle.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES);
+        int limit=Math.min(matches.size(),3);
+        int best=0;
+        float bestScore=-1f;
+
+        for(int i=0;i<limit;i++){
+            String candidate=normalizeRecognizedSpeech(matches.get(i));
+            if(candidate.isEmpty()) continue;
+            float confidence=(confidences!=null && i<confidences.length)?confidences[i]:-1f;
+            float score=confidence>=0?confidence:(1f-(i*0.08f));
+
+            // Prefer alternatives that correctly identify the app name.
+            if(candidate.contains("TilMate")) score+=0.12f;
+
+            // Very short isolated low-confidence final results are common false starts.
+            if(isFinal && confirmedSpeech.isEmpty() && candidate.split("\\s+").length==1
+                && confidence>=0 && confidence<0.45f){
+                score-=0.60f;
+            }
+
+            if(score>bestScore){bestScore=score;best=i;}
+        }
+
+        String chosen=normalizeRecognizedSpeech(matches.get(best));
+        if(isFinal && confidences!=null && best<confidences.length
+            && confidences[best]>=0 && confidences[best]<0.28f
+            && chosen.split("\\s+").length<=2){
+            return "";
+        }
+        return chosen;
+    }
+
     private void applySpeechResults(Bundle bundle,boolean isFinal){
         if(bundle==null||input==null)return;
-        ArrayList<String> matches=bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        if(matches==null||matches.isEmpty())return;
-        String spoken=matches.get(0).trim();
+        String spoken=chooseBestRecognition(bundle,isFinal);
         if(spoken.isEmpty())return;
 
         if(isFinal){
