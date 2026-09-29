@@ -39,6 +39,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private String confirmedSpeech="";
     private String confirmedVoiceTranslation="";
     private int voiceSessionGeneration=0;
+    private boolean voiceAiWarningShown=false;
     private final Handler voiceHandler=new Handler(Looper.getMainLooper());
     private final ExecutorService translationExecutor=Executors.newSingleThreadExecutor();
     private int translationGeneration=0;
@@ -681,6 +682,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             confirmedSpeech="";
             confirmedVoiceTranslation="";
             voiceSessionGeneration++;
+            voiceAiWarningShown=false;
             enToUz=!enToUz;
             sourceLang.setText(enToUz?"English":"Uzbek");
             targetLang.setText(enToUz?"Uzbek":"English");
@@ -721,6 +723,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         }
         continuousVoice=true;
         voiceSessionGeneration++;
+        voiceAiWarningShown=false;
         confirmedSpeech=input==null?"":input.getText().toString().trim();
         String currentOut=output==null?"":output.getText().toString().trim();
         if(currentOut.startsWith("Translation will appear") || currentOut.startsWith("Translating")
@@ -822,13 +825,18 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             String key=chunk.toLowerCase(Locale.ROOT).replaceAll("[.!?]+$","").trim();
             Map<String,String> map=directionSnapshot?enUz:uzEn;
             String ans=map.get(key);
-            if(ans==null){
-                ans=directionSnapshot
-                    ?"AI paketini yuklab oling — erkin gaplarni oflayn tarjima qilish uchun."
-                    :"Download the AI pack for offline open-ended sentence translation.";
+            if(ans!=null){
+                ans=punctuateSpeechChunk(ans,!directionSnapshot);
+                confirmedVoiceTranslation=appendSentence(confirmedVoiceTranslation,ans);
+                output.setText(confirmedVoiceTranslation);
+            }else if(!voiceAiWarningShown){
+                voiceAiWarningShown=true;
+                String notice=directionSnapshot
+                    ?"To‘liq jonli gap tarjimasi uchun AI Translation Pack-ni yuklab oling."
+                    :"Download the AI Translation Pack for full live sentence translation.";
+                confirmedVoiceTranslation=appendSentence(confirmedVoiceTranslation,notice);
+                output.setText(confirmedVoiceTranslation);
             }
-            confirmedVoiceTranslation=appendSentence(confirmedVoiceTranslation,ans);
-            output.setText(confirmedVoiceTranslation);
             return;
         }
 
