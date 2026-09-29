@@ -49,6 +49,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private File packFile;
     private File aiPackDir;
     private float voiceSpeed=0.86f;
+    private String speechAccent="auto";
     private String currentScreen="home";
     private static final int TEAL=Color.rgb(27,154,132);
     private static final int BLUE=Color.rgb(53,120,212);
@@ -63,6 +64,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         packFile=new File(getFilesDir(),"uz-en-v1.tsv");
         aiPackDir=new File(getFilesDir(),"ai-translation-v1");
         voiceSpeed=prefs.getFloat("voice_speed",0.86f);
+        speechAccent=prefs.getString("speech_accent","auto");
         tts=new TextToSpeech(this,this);
         if(SpeechRecognizer.isRecognitionAvailable(this)){
             speechRecognizer=SpeechRecognizer.createSpeechRecognizer(this);
@@ -386,19 +388,69 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void showVoiceSettings(){
-        String[] choices={"Slow • Sekin (0.75×)","Clear • Aniq (0.86×)","Normal • Oddiy (1.0×)","Test English voice","Test Uzbek voice"};
+        String accentLabel="Automatic";
+        if("en-IN".equals(speechAccent)) accentLabel="English (India)";
+        else if("en-US".equals(speechAccent)) accentLabel="English (US)";
+        else if("en-GB".equals(speechAccent)) accentLabel="English (UK)";
+
+        String[] choices={
+            "Recognition accent • "+accentLabel,
+            "Slow • Sekin (0.75×)",
+            "Clear • Aniq (0.86×)",
+            "Normal • Oddiy (1.0×)",
+            "Test English voice",
+            "Test Uzbek voice"
+        };
         new AlertDialog.Builder(this)
             .setTitle("🔊 Voice settings • Ovoz")
             .setItems(choices,(d,which)->{
-                if(which<=2){
-                    voiceSpeed=which==0?0.75f:(which==1?0.86f:1.0f);
+                if(which==0){
+                    showRecognitionAccentSettings();
+                }else if(which>=1 && which<=3){
+                    voiceSpeed=which==1?0.75f:(which==2?0.86f:1.0f);
                     prefs.edit().putFloat("voice_speed",voiceSpeed).apply();
                     if(tts!=null)tts.setSpeechRate(voiceSpeed);
                     toast("Voice speed saved");
-                }else if(which==3) speakTest("Welcome to TilMate. Learn English step by step.",Locale.US);
-                else speakTest("Assalomu alaykum. TilMate bilan ingliz tilini o‘rganamiz.",new Locale("uz","UZ"));
+                }else if(which==4){
+                    speakTest("Welcome to TilMate. Learn English step by step.",Locale.US);
+                }else{
+                    speakTest("Assalomu alaykum. TilMate bilan ingliz tilini o‘rganamiz.",new Locale("uz","UZ"));
+                }
             })
             .setNegativeButton("Close • Yopish",null).show();
+    }
+
+    private void showRecognitionAccentSettings(){
+        String[] accents={
+            "Automatic • Recommended",
+            "English (India)",
+            "English (United States)",
+            "English (United Kingdom)"
+        };
+        int checked=0;
+        if("en-IN".equals(speechAccent)) checked=1;
+        else if("en-US".equals(speechAccent)) checked=2;
+        else if("en-GB".equals(speechAccent)) checked=3;
+
+        new AlertDialog.Builder(this)
+            .setTitle("Speech recognition accent")
+            .setSingleChoiceItems(accents,checked,(dialog,which)->{
+                speechAccent=which==1?"en-IN":which==2?"en-US":which==3?"en-GB":"auto";
+                prefs.edit().putString("speech_accent",speechAccent).apply();
+                dialog.dismiss();
+                toast(which==0?"Automatic recognition selected":accents[which]+" selected");
+            })
+            .setNegativeButton("Cancel",null)
+            .show();
+    }
+
+    private String recognitionLanguageTag(){
+        if(!enToUz) return "uz-UZ";
+        if("en-IN".equals(speechAccent)||"en-US".equals(speechAccent)||"en-GB".equals(speechAccent)){
+            return speechAccent;
+        }
+        // Generic English lets the installed Android speech service choose its best English model.
+        return "en";
     }
 
     private void speakTest(String phrase,Locale locale){
@@ -777,7 +829,8 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true);
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,3);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,enToUz?"en-US":"uz-UZ");
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,recognitionLanguageTag());
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE,recognitionLanguageTag());
         intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,900L);
         intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,550L);
         input.setHint(enToUz?"Listening in English…":"O‘zbekcha tinglanmoqda…");
