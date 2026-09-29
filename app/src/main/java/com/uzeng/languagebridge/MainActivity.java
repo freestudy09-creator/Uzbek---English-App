@@ -897,7 +897,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         }
 
         // Keep the app name stable after recognition normalization.
-        s=s.replaceAll("(?i)\\b(team\\s*mate|tell\\s*mate|til\\s*mate|teammate|tellmate|telmate)\\b","TilMate");
+        s=s.replaceAll("(?i)\\b(team\\s*mate|tell\\s*mate|til\\s*mate|till\\s*mate|teammate|tellmate|telmate|tillmate)\\b","TilMate");
         return s;
     }
 
@@ -927,6 +927,22 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             if(questionStart){
                 String left=String.join(" ",Arrays.copyOfRange(tokens,start,i)).trim();
                 if(left.split("\\s+").length>=4){
+                    parts.add(left);
+                    start=i;
+                    break;
+                }
+            }
+
+            // If a question has already begun, split before a clear new first-person statement.
+            if(i>=start+3 && a.equals("i") &&
+                (b.equals("think")||b.equals("believe")||b.equals("feel")||b.equals("want")||b.equals("need"))){
+                String left=String.join(" ",Arrays.copyOfRange(tokens,start,i)).trim();
+                String lowerLeft=left.toLowerCase(Locale.ROOT);
+                boolean leftLooksQuestion=lowerLeft.startsWith("are ")||lowerLeft.startsWith("is ")
+                    ||lowerLeft.startsWith("do ")||lowerLeft.startsWith("does ")||lowerLeft.startsWith("did ")
+                    ||lowerLeft.startsWith("can ")||lowerLeft.startsWith("could ")||lowerLeft.startsWith("would ")
+                    ||lowerLeft.startsWith("will ")||lowerLeft.startsWith("have ")||lowerLeft.startsWith("has ");
+                if(leftLooksQuestion){
                     parts.add(left);
                     start=i;
                     break;
@@ -968,7 +984,6 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         final String chunk=sourceChunk.trim();
         final boolean directionSnapshot=enToUz;
         final int sessionSnapshot=voiceSessionGeneration;
-        final String previousChunk=lastVoiceSourceChunk;
         lastVoiceSourceChunk=chunk;
 
         if(!isAiPackReady()){
@@ -1000,15 +1015,9 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                 File modelDir=new File(aiPackDir,directionSnapshot?"ai-pack/en-uz":"ai-pack/uz-en");
                 File spm=findSpm(modelDir);
                 if(spm==null) throw new IOException("Tokenizer file missing");
-                int words=chunk.split("\\s+").length;
-                boolean useContext=!previousChunk.isEmpty() && words<=12;
-                String modelInput=useContext?(previousChunk+" "+chunk):chunk;
-                String ans=nativeTranslate(modelDir.getAbsolutePath(),spm.getAbsolutePath(),modelInput);
+                String ans=nativeTranslate(modelDir.getAbsolutePath(),spm.getAbsolutePath(),chunk);
                 String candidate=(ans==null||ans.trim().isEmpty())?"":polishTranslation(ans,directionSnapshot);
-                if(useContext && !candidate.isEmpty()){
-                    String last=extractLastTranslatedSentence(candidate);
-                    if(!last.isEmpty()) candidate=last;
-                }
+                candidate=sanitizeVoiceTranslation(candidate,chunk,directionSnapshot);
                 final String polished=candidate.isEmpty()
                     ?(directionSnapshot?"Tarjima topilmadi.":"Translation unavailable.")
                     :candidate;
@@ -1031,6 +1040,54 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                 });
             }
         });
+    }
+
+    private String sanitizeVoiceTranslation(String translated,String source,boolean directionEnToUz){
+        if(translated==null) return "";
+        String s=translated.trim().replaceAll("\\s+"," ");
+        if(s.isEmpty()) return "";
+
+        String[] pieces=s.split("(?<=[.!?])\\s+");
+        int sourceWords=Math.max(1,source.trim().split("\\s+").length);
+
+        // A short spoken sentence should not suddenly expand into many unrelated sentences.
+        int maxSentences=sourceWords<=12?2:3;
+        if(pieces.length>maxSentences){
+            StringBuilder kept=new StringBuilder();
+            for(int i=0;i<maxSentences;i++){
+                if(kept.length()>0) kept.append(" ");
+                kept.append(pieces[i].trim());
+            }
+            s=kept.toString();
+        }
+
+        // Reject obvious garbage tails that frequently indicate decoder drift.
+        String lower=s.toLowerCase(Locale.ROOT);
+        String[] suspicious={"isbn ","http://","https://","www.","©","copyright","titoria","pina colada"};
+        for(String token:suspicious){
+            int p=lower.indexOf(token);
+            if(p>0){
+                s=s.substring(0,p).trim();
+                break;
+            }else if(p==0){
+                return "";
+            }
+        }
+
+        // Keep output length reasonably proportional to the source for live chunks.
+        int targetWords=s.isEmpty()?0:s.split("\\s+").length;
+        if(sourceWords<=15 && targetWords>sourceWords*4){
+            StringBuilder kept=new StringBuilder();
+            int count=0;
+            for(String piece:pieces){
+                if(count>0) kept.append(" ");
+                kept.append(piece.trim());
+                count+=piece.trim().split("\\s+").length;
+                if(count>=sourceWords*3) break;
+            }
+            s=kept.toString().trim();
+        }
+        return s;
     }
 
     private String normalizeRecognizedSpeech(String text){
