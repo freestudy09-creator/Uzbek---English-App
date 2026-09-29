@@ -37,6 +37,8 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private boolean listening=false;
     private boolean continuousVoice=false;
     private String confirmedSpeech="";
+    private String confirmedVoiceTranslation="";
+    private int voiceSessionGeneration=0;
     private final Handler voiceHandler=new Handler(Looper.getMainLooper());
     private final ExecutorService translationExecutor=Executors.newSingleThreadExecutor();
     private int translationGeneration=0;
@@ -486,6 +488,10 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
 
     private void showTranslator(){
         currentScreen="translator";
+        if(!continuousVoice){
+            confirmedSpeech="";
+            confirmedVoiceTranslation="";
+        }
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.rgb(250,252,252));
@@ -662,6 +668,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         input.addTextChangedListener(new TextWatcher(){
             @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){}
             @Override public void onTextChanged(CharSequence s,int start,int before,int count){
+                if(continuousVoice) return;
                 if(pending[0]!=null) liveHandler.removeCallbacks(pending[0]);
                 pending[0]=()->translateLive();
                 liveHandler.postDelayed(pending[0],350);
@@ -672,6 +679,8 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         directionArrow.setOnClickListener(v->{
             if(continuousVoice) stopVoiceTranslation();
             confirmedSpeech="";
+            confirmedVoiceTranslation="";
+            voiceSessionGeneration++;
             enToUz=!enToUz;
             sourceLang.setText(enToUz?"English":"Uzbek");
             targetLang.setText(enToUz?"Uzbek":"English");
@@ -711,7 +720,14 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             return;
         }
         continuousVoice=true;
+        voiceSessionGeneration++;
         confirmedSpeech=input==null?"":input.getText().toString().trim();
+        String currentOut=output==null?"":output.getText().toString().trim();
+        if(currentOut.startsWith("Translation will appear") || currentOut.startsWith("Translating")
+            || currentOut.startsWith("Tarjima avtomatik") || currentOut.startsWith("AI paketini")){
+            currentOut="";
+        }
+        confirmedVoiceTranslation=currentOut;
         toast(enToUz?"Live English listening on":"Jonli o‘zbekcha tinglash yoqildi");
         beginListeningSession();
     }
@@ -740,6 +756,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private void stopVoiceTranslation(){
         continuousVoice=false;
         listening=false;
+        voiceSessionGeneration++;
         voiceHandler.removeCallbacksAndMessages(null);
         if(speechRecognizer!=null) speechRecognizer.cancel();
         if(input!=null) input.setHint(enToUz?"Type here":"Shu yerga yozing");
@@ -754,6 +771,102 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         return base+" "+spoken;
     }
 
+    private String capitalizeSentence(String s){
+        if(s==null) return "";
+        s=s.trim();
+        if(s.isEmpty()) return s;
+        return Character.toUpperCase(s.charAt(0))+s.substring(1);
+    }
+
+    private boolean looksLikeQuestion(String spoken,boolean english){
+        String s=spoken==null?"":spoken.trim().toLowerCase(Locale.ROOT);
+        if(s.isEmpty()) return false;
+        if(english){
+            String[] q={"who ","what ","when ","where ","why ","how ","which ","whose ",
+                "can ","could ","would ","should ","do ","does ","did ","is ","are ","am ",
+                "have ","has ","had ","will ","may ","might "};
+            for(String p:q) if(s.startsWith(p)) return true;
+            return s.equals("who")||s.equals("what")||s.equals("when")||s.equals("where")
+                ||s.equals("why")||s.equals("how");
+        }else{
+            String[] q={"kim ","nima ","qachon ","qayer","nega ","nimaga ","qanday ","qancha ",
+                "necha ","qaysi ","qanaqa "};
+            for(String p:q) if(s.startsWith(p)) return true;
+            return s.endsWith("mi")||s.endsWith("mi?");
+        }
+    }
+
+    private String punctuateSpeechChunk(String spoken,boolean english){
+        String s=spoken==null?"":spoken.trim().replaceAll("\\s+"," ");
+        if(s.isEmpty()) return "";
+        s=capitalizeSentence(s);
+        if(s.matches(".*[.!?…]$")) return s;
+        return s+(looksLikeQuestion(s,english)?"?":".");
+    }
+
+    private String appendSentence(String base,String sentence){
+        base=base==null?"":base.trim();
+        sentence=sentence==null?"":sentence.trim();
+        if(base.isEmpty()) return sentence;
+        if(sentence.isEmpty()) return base;
+        return base+" "+sentence;
+    }
+
+    private void translateVoiceChunk(String sourceChunk){
+        if(sourceChunk==null || sourceChunk.trim().isEmpty() || output==null) return;
+        final String chunk=sourceChunk.trim();
+        final boolean directionSnapshot=enToUz;
+        final int sessionSnapshot=voiceSessionGeneration;
+
+        if(!isAiPackReady()){
+            String key=chunk.toLowerCase(Locale.ROOT).replaceAll("[.!?]+$","").trim();
+            Map<String,String> map=directionSnapshot?enUz:uzEn;
+            String ans=map.get(key);
+            if(ans==null){
+                ans=directionSnapshot
+                    ?"AI paketini yuklab oling — erkin gaplarni oflayn tarjima qilish uchun."
+                    :"Download the AI pack for offline open-ended sentence translation.";
+            }
+            confirmedVoiceTranslation=appendSentence(confirmedVoiceTranslation,ans);
+            output.setText(confirmedVoiceTranslation);
+            return;
+        }
+
+        final String stableBefore=confirmedVoiceTranslation;
+        output.setText(stableBefore.isEmpty()
+            ?"Translating latest phrase…"
+            :stableBefore+"\n\nTranslating latest phrase…");
+
+        translationExecutor.execute(()->{
+            try{
+                File modelDir=new File(aiPackDir,directionSnapshot?"ai-pack/en-uz":"ai-pack/uz-en");
+                File spm=findSpm(modelDir);
+                if(spm==null) throw new IOException("Tokenizer file missing");
+                String ans=nativeTranslate(modelDir.getAbsolutePath(),spm.getAbsolutePath(),chunk);
+                final String polished=(ans==null||ans.trim().isEmpty())
+                    ?(directionSnapshot?"Tarjima topilmadi.":"Translation unavailable.")
+                    :polishTranslation(ans,directionSnapshot);
+                runOnUiThread(()->{
+                    if(sessionSnapshot!=voiceSessionGeneration || directionSnapshot!=enToUz) return;
+                    confirmedVoiceTranslation=appendSentence(confirmedVoiceTranslation,polished);
+                    if(output!=null) output.setText(confirmedVoiceTranslation);
+                });
+            }catch(Throwable ex){
+                runOnUiThread(()->{
+                    if(sessionSnapshot!=voiceSessionGeneration || directionSnapshot!=enToUz) return;
+                    String key=chunk.toLowerCase(Locale.ROOT).replaceAll("[.!?]+$","").trim();
+                    Map<String,String> map=directionSnapshot?enUz:uzEn;
+                    String ans=map.get(key);
+                    if(ans==null) ans=directionSnapshot
+                        ?"Tarjima mavjud emas."
+                        :"Translation unavailable.";
+                    confirmedVoiceTranslation=appendSentence(confirmedVoiceTranslation,ans);
+                    if(output!=null) output.setText(confirmedVoiceTranslation);
+                });
+            }
+        });
+    }
+
     private void applySpeechResults(Bundle bundle,boolean isFinal){
         if(bundle==null||input==null)return;
         ArrayList<String> matches=bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
@@ -761,12 +874,17 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         String spoken=matches.get(0).trim();
         if(spoken.isEmpty())return;
 
-        String display=joinSpeech(confirmedSpeech,spoken);
-        input.setText(display);
-        input.setSelection(input.length());
-
         if(isFinal){
-            confirmedSpeech=display;
+            String chunk=punctuateSpeechChunk(spoken,enToUz);
+            confirmedSpeech=appendSentence(confirmedSpeech,chunk);
+            input.setText(confirmedSpeech);
+            input.setSelection(input.length());
+            translateVoiceChunk(chunk);
+        }else{
+            String partial=capitalizeSentence(spoken);
+            String display=joinSpeech(confirmedSpeech,partial);
+            input.setText(display);
+            input.setSelection(input.length());
         }
     }
 
